@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">ResQNet</string>
+    <string name="mesh_notification_channel">Mesh connection</string>
+    <string name="mesh_notification_title">ResQNet mesh active</string>
+    <string name="mesh_notification_text">Discovering peers and forwarding local messages</string>
+    <string name="stop_mesh">Stop mesh</string>
 </resources>

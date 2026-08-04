@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="4dp" android:paddingBottom="4dp">
+    <LinearLayout android:id="@+id/messageBubble" android:layout_width="wrap_content" android:layout_height="wrap_content" android:maxWidth="320dp" android:orientation="vertical" android:padding="12dp" android:background="@drawable/bg_message_incoming">
+        <TextView android:id="@+id/messageAuthor" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textStyle="bold" android:textColor="@color/resq_primary" />
+        <TextView android:id="@+id/messageBody" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="16sp" android:textColor="@color/text_primary" android:layout_marginTop="3dp" />
+        <TextView android:id="@+id/messageMetadata" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="@color/text_muted" android:layout_marginTop="6dp" />
+    </LinearLayout>
+</FrameLayout>

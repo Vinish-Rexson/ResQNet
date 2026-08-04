@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@color/surface">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:padding="12dp" android:background="@color/white">
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+            <TextView android:id="@+id/meshStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mesh stopped" android:textStyle="bold" android:textColor="@color/text_primary" />
+            <TextView android:id="@+id/peerCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 peers" android:textColor="@color/text_muted" />
+        </LinearLayout>
+        <Button android:id="@+id/meshButton" style="@style/Widget.MaterialComponents.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mesh" />
+        <Button android:id="@+id/diagnosticsButton" style="@style/Widget.MaterialComponents.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Logs" />
+    </LinearLayout>
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <androidx.recyclerview.widget.RecyclerView android:id="@+id/messageList" android:layout_width="match_parent" android:layout_height="match_parent" android:padding="12dp" android:clipToPadding="false" />
+        <TextView android:id="@+id/emptyState" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="center" android:gravity="center" android:padding="32dp" android:text="No messages yet\n\nStart the mesh, then write the first message in your local emergency channel." android:textColor="@color/text_muted" android:textSize="16sp" />
+    </FrameLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="10dp" android:background="@color/white">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="bottom">
+            <EditText android:id="@+id/messageInput" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="Message everyone nearby" android:maxLines="4" android:inputType="textCapSentences|textMultiLine" android:padding="12dp" />
+            <Button android:id="@+id/sendButton" android:layout_width="wrap_content" android:layout_height="52dp" android:text="Send" />
+        </LinearLayout>
+        <TextView android:id="@+id/byteCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 / 500 bytes" android:textColor="@color/text_muted" android:textSize="12sp" android:layout_marginStart="12dp" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/surface">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+        <TextView android:id="@+id/nodeDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:fontFamily="monospace" android:textColor="@color/text_primary" />
+        <com.google.android.material.switchmaterial.SwitchMaterial android:id="@+id/topologySwitch" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Enable forced demo topology" android:textStyle="bold" android:layout_marginTop="24dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="DEBUG ONLY — visibly restricts links to A ↔ B ↔ C. Restart mesh mode after changing this setting." android:textColor="@color/alert" android:layout_marginTop="4dp" />
+        <RadioGroup android:id="@+id/roleGroup" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+            <RadioButton android:id="@+id/roleNone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="None" />
+            <RadioButton android:id="@+id/roleA" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="A" />
+            <RadioButton android:id="@+id/roleB" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="B" />
+            <RadioButton android:id="@+id/roleC" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="C" />
+        </RadioGroup>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="28dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Mesh event log" android:textStyle="bold" android:textSize="18sp" />
+            <Button android:id="@+id/clearEvents" style="@style/Widget.MaterialComponents.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Clear" />
+        </LinearLayout>
+        <TextView android:id="@+id/eventLog" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="240dp" android:padding="12dp" android:background="@color/white" android:fontFamily="monospace" android:textSize="12sp" android:textColor="@color/text_primary" />
+    </LinearLayout>
+</ScrollView>
