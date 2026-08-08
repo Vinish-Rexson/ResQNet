@@ -6,7 +6,7 @@
 2. Create distinct profiles such as Alice, Relay, and Charlie.
 3. Open **Logs** on each phone, enable **forced demo topology**, and assign A, B, and C respectively.
 4. Open **Mesh** and grant Nearby Devices access.
-5. Disconnect infrastructure Wi-Fi and cellular data. Bluetooth must remain enabled.
+5. Enable airplane mode, then explicitly turn Bluetooth back on if the phone disabled it. ResQNet automatically rebuilds its BLE sessions when the radio returns.
 6. Start mesh mode on B, then A and C. Keep the persistent ResQNet notification visible.
 
 The forced topology is labelled debug-only. A and C ignore each other's advertisements; B accepts both.

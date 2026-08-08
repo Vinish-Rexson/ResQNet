@@ -95,9 +95,17 @@ class BleMeshTransport(
         val serviceData = ByteBuffer.allocate(10).put(PROTOCOL_VERSION.toByte()).put(profile.demoRole.code).put(nodePrefix).array()
         val settings = AdvertiseSettings.Builder().setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM).setConnectable(true).build()
-        val data = AdvertiseData.Builder().addServiceUuid(ParcelUuid(SERVICE_UUID))
-            .addServiceData(ParcelUuid(SERVICE_UUID), serviceData).setIncludeDeviceName(false).build()
-        advertiser.startAdvertising(settings, data, advertiseCallback)
+        // Legacy advertisements have separate 31-byte limits for the primary packet and
+        // scan response. A 128-bit UUID plus our node metadata does not fit in one packet.
+        val advertiseData = AdvertiseData.Builder()
+            .addServiceUuid(ParcelUuid(SERVICE_UUID))
+            .setIncludeDeviceName(false)
+            .build()
+        val scanResponse = AdvertiseData.Builder()
+            .addServiceData(ParcelUuid(SERVICE_UUID), serviceData)
+            .setIncludeDeviceName(false)
+            .build()
+        advertiser.startAdvertising(settings, advertiseData, scanResponse, advertiseCallback)
     }
 
     private fun startScanning() {
@@ -107,7 +115,9 @@ class BleMeshTransport(
     }
 
     private val advertiseCallback = object : AdvertiseCallback() {
-        override fun onStartFailure(errorCode: Int) = emit(TransportEvent.Error("Advertising failed ($errorCode)"))
+        override fun onStartFailure(errorCode: Int) = emit(TransportEvent.Error(
+            "Advertising failed: ${advertiseFailureName(errorCode)} ($errorCode)"
+        ))
     }
 
     private val scanCallback = object : ScanCallback() {
@@ -240,6 +250,14 @@ class BleMeshTransport(
         .onSuccess { emit(TransportEvent.FrameReceived(peerId, it)) }
         .onFailure { emit(TransportEvent.Error("Malformed frame from ${peerId.take(8)}: ${it.message}")) }
     private fun emit(event: TransportEvent) { mutableEvents.tryEmit(event) }
+    private fun advertiseFailureName(code: Int): String = when (code) {
+        AdvertiseCallback.ADVERTISE_FAILED_DATA_TOO_LARGE -> "data too large"
+        AdvertiseCallback.ADVERTISE_FAILED_TOO_MANY_ADVERTISERS -> "too many advertisers"
+        AdvertiseCallback.ADVERTISE_FAILED_ALREADY_STARTED -> "already started"
+        AdvertiseCallback.ADVERTISE_FAILED_INTERNAL_ERROR -> "internal error"
+        AdvertiseCallback.ADVERTISE_FAILED_FEATURE_UNSUPPORTED -> "feature unsupported"
+        else -> "unknown error"
+    }
     private fun scheduleReconnect(peerId: String) {
         val attempt = (reconnectAttempts[peerId] ?: 0) + 1
         reconnectAttempts[peerId] = attempt
