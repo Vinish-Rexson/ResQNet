@@ -118,6 +118,14 @@ fun ContactEntity.withoutExpiredRequests(now: Long): ContactEntity? {
     )
 }
 
+fun ContactEntity.samePendingSnapshot(expected: ContactEntity): Boolean =
+    nodeId == expected.nodeId &&
+        state == expected.state &&
+        outgoingRequestId == expected.outgoingRequestId &&
+        outgoingRequestExpiresAt == expected.outgoingRequestExpiresAt &&
+        incomingRequestId == expected.incomingRequestId &&
+        incomingRequestExpiresAt == expected.incomingRequestExpiresAt
+
 @Entity(tableName = "deliveries", primaryKeys = ["messageId", "peerId"], indices = [Index("peerId")])
 data class PeerDeliveryEntity(
     val messageId: String,

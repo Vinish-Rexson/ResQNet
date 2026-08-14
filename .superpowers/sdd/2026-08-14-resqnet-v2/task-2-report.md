@@ -131,3 +131,36 @@ Original Task 2 commits:
 - `RoomLocalProjectionRepository` owns the only production direct local-write path and uses a Room transaction; the router fallback remains solely for isolated tests that do not inject Room.
 - Destructive reset is explicitly restricted to schemas 1 and 2 rather than accepting every unknown historical/future version.
 - On-device migration/reset execution remains scheduled for Task 5 instrumentation; this round compile/KAPT verifies the v3 schema and builder API.
+
+## Fix round 2/5: Conditional pending expiry
+
+Task 2 commits entering this round:
+
+- `b087967` — `feat: add trusted contacts and direct messages`
+- `a8dc349` — `docs: report trusted contacts task`
+- `56453c7` — `fix: harden contact persistence invariants`
+
+### RED/GREEN evidence
+
+1. Concurrent pending-request replacement
+   - RED command: `.\gradlew.bat testDebugUnitTest --tests com.resqnet.app.data.ContactExpiryNormalizerTest`
+   - RED outcome: compilation failed because `PendingContactExpiry`, `ContactExpiryStore`, and `samePendingSnapshot` did not exist. The two new tests model a stale expiry scan racing with a valid replacement before either a full-row delete or crossed-request normalization write.
+   - GREEN command: same focused command.
+   - GREEN outcome: `BUILD SUCCESSFUL` in 15s; both stale-snapshot races preserve the concurrent replacement.
+
+2. Contact-state regression check
+   - Focused command: `.\gradlew.bat testDebugUnitTest --tests com.resqnet.app.data.ContactExpiryNormalizerTest --tests com.resqnet.app.contacts.ContactRouterTest`
+   - Focused outcome: `BUILD SUCCESSFUL` in 3s; 10 tests passed, 0 failed, 0 errors across 2 suites.
+
+### Design and self-review
+
+- Expiry still scans pending rows, but each mutation is now a single conditional SQL statement. Delete and normalization update require the same node ID, pending state, outgoing request ID/expiry, and incoming request ID/expiry that were read.
+- A failed conditional mutation is benign: it means another operation changed the pending snapshot, so expiry does not replay stale state or delete the replacement.
+- The normalization update changes only request state/IDs/expiries; it cannot overwrite concurrently refreshed authenticated identity fields.
+- Crossed requests retain independent IDs and expiries. When only one side expires, the guarded update clears that side and preserves the valid side exactly as before.
+
+### Final verification
+
+- Final command: `.\gradlew.bat testDebugUnitTest assembleDebug`
+- Final outcome: `BUILD SUCCESSFUL` in 9s; 38 tests passed, 0 failed, 0 errors across 8 suites, and the debug APK assembled.
+- `git diff --check`: no whitespace errors; only the repository's LF-to-CRLF notices.

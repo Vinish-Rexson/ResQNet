@@ -24,6 +24,58 @@ interface MeshDao {
     @Query("SELECT * FROM contacts WHERE state IN ('PENDING_OUTGOING', 'PENDING_INCOMING')")
     suspend fun pendingContacts(): List<ContactEntity>
 
+    @Query(
+        """
+        DELETE FROM contacts
+        WHERE nodeId = :nodeId
+          AND state = :expectedState
+          AND state IN ('PENDING_OUTGOING', 'PENDING_INCOMING')
+          AND outgoingRequestId IS :expectedOutgoingRequestId
+          AND outgoingRequestExpiresAt IS :expectedOutgoingRequestExpiresAt
+          AND incomingRequestId IS :expectedIncomingRequestId
+          AND incomingRequestExpiresAt IS :expectedIncomingRequestExpiresAt
+        """,
+    )
+    suspend fun deleteContactIfPendingSnapshotMatches(
+        nodeId: String,
+        expectedState: ContactState,
+        expectedOutgoingRequestId: String?,
+        expectedOutgoingRequestExpiresAt: Long?,
+        expectedIncomingRequestId: String?,
+        expectedIncomingRequestExpiresAt: Long?,
+    ): Int
+
+    @Query(
+        """
+        UPDATE contacts SET
+          state = :newState,
+          outgoingRequestId = :newOutgoingRequestId,
+          outgoingRequestExpiresAt = :newOutgoingRequestExpiresAt,
+          incomingRequestId = :newIncomingRequestId,
+          incomingRequestExpiresAt = :newIncomingRequestExpiresAt
+        WHERE nodeId = :nodeId
+          AND state = :expectedState
+          AND state IN ('PENDING_OUTGOING', 'PENDING_INCOMING')
+          AND outgoingRequestId IS :expectedOutgoingRequestId
+          AND outgoingRequestExpiresAt IS :expectedOutgoingRequestExpiresAt
+          AND incomingRequestId IS :expectedIncomingRequestId
+          AND incomingRequestExpiresAt IS :expectedIncomingRequestExpiresAt
+        """,
+    )
+    suspend fun replaceContactPendingSnapshotIfMatches(
+        nodeId: String,
+        expectedState: ContactState,
+        expectedOutgoingRequestId: String?,
+        expectedOutgoingRequestExpiresAt: Long?,
+        expectedIncomingRequestId: String?,
+        expectedIncomingRequestExpiresAt: Long?,
+        newState: ContactState,
+        newOutgoingRequestId: String?,
+        newOutgoingRequestExpiresAt: Long?,
+        newIncomingRequestId: String?,
+        newIncomingRequestExpiresAt: Long?,
+    ): Int
+
     @Query("SELECT * FROM conversation_messages ORDER BY createdAt ASC, originSequence ASC, messageId ASC")
     fun observeMessages(): Flow<List<ConversationMessageEntity>>
 

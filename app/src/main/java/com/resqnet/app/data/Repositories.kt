@@ -51,6 +51,24 @@ interface ContactRepository {
     suspend fun deleteExpiredPending(now: Long)
 }
 
+interface ContactExpiryStore {
+    suspend fun pendingContacts(): List<ContactEntity>
+    suspend fun deleteIfPendingSnapshotMatches(expected: ContactEntity): Boolean
+    suspend fun replaceIfPendingSnapshotMatches(expected: ContactEntity, replacement: ContactEntity): Boolean
+}
+
+class PendingContactExpiry(private val store: ContactExpiryStore) {
+    suspend fun expire(now: Long) {
+        store.pendingContacts().forEach { expected ->
+            val normalized = expected.withoutExpiredRequests(now)
+            when {
+                normalized == null -> store.deleteIfPendingSnapshotMatches(expected)
+                normalized != expected -> store.replaceIfPendingSnapshotMatches(expected, normalized)
+            }
+        }
+    }
+}
+
 class RoomPacketRepository(
     private val dao: MeshDao,
     private val clock: () -> Long = System::currentTimeMillis,
@@ -147,14 +165,42 @@ class RoomPeerRepository(
 }
 
 class RoomContactRepository(private val dao: MeshDao) : ContactRepository {
+    private val pendingExpiry = PendingContactExpiry(RoomContactExpiryStore(dao))
+
     override fun observeContacts() = dao.observeContacts()
     override suspend fun find(nodeId: String) = dao.contact(nodeId)
     override suspend fun upsert(contact: ContactEntity) = dao.upsertContact(contact)
     override suspend fun delete(nodeId: String) = dao.deleteContact(nodeId)
-    override suspend fun deleteExpiredPending(now: Long) {
-        dao.pendingContacts().forEach { contact ->
-            val normalized = contact.withoutExpiredRequests(now)
-            if (normalized == null) dao.deleteContact(contact.nodeId) else dao.upsertContact(normalized)
-        }
-    }
+    override suspend fun deleteExpiredPending(now: Long) = pendingExpiry.expire(now)
+}
+
+private class RoomContactExpiryStore(private val dao: MeshDao) : ContactExpiryStore {
+    override suspend fun pendingContacts() = dao.pendingContacts()
+
+    override suspend fun deleteIfPendingSnapshotMatches(expected: ContactEntity): Boolean =
+        dao.deleteContactIfPendingSnapshotMatches(
+            nodeId = expected.nodeId,
+            expectedState = expected.state,
+            expectedOutgoingRequestId = expected.outgoingRequestId,
+            expectedOutgoingRequestExpiresAt = expected.outgoingRequestExpiresAt,
+            expectedIncomingRequestId = expected.incomingRequestId,
+            expectedIncomingRequestExpiresAt = expected.incomingRequestExpiresAt,
+        ) > 0
+
+    override suspend fun replaceIfPendingSnapshotMatches(
+        expected: ContactEntity,
+        replacement: ContactEntity,
+    ): Boolean = dao.replaceContactPendingSnapshotIfMatches(
+        nodeId = expected.nodeId,
+        expectedState = expected.state,
+        expectedOutgoingRequestId = expected.outgoingRequestId,
+        expectedOutgoingRequestExpiresAt = expected.outgoingRequestExpiresAt,
+        expectedIncomingRequestId = expected.incomingRequestId,
+        expectedIncomingRequestExpiresAt = expected.incomingRequestExpiresAt,
+        newState = replacement.state,
+        newOutgoingRequestId = replacement.outgoingRequestId,
+        newOutgoingRequestExpiresAt = replacement.outgoingRequestExpiresAt,
+        newIncomingRequestId = replacement.incomingRequestId,
+        newIncomingRequestExpiresAt = replacement.incomingRequestExpiresAt,
+    ) > 0
 }
