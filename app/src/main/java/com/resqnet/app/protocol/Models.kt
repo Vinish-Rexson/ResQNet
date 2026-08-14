@@ -111,7 +111,27 @@ data class ContactRequestBody(val requestId: String, val requesterName: String) 
 data class ContactAcceptBody(val requestId: String) : PacketBody { override val kind = PacketKind.CONTACT_ACCEPT }
 data class ContactDeclineBody(val requestId: String) : PacketBody { override val kind = PacketKind.CONTACT_DECLINE }
 data class DirectTextBody(val conversationId: String, val text: String) : PacketBody { override val kind = PacketKind.DIRECT_TEXT }
-data class DeliveryReceiptBody(val messageId: String) : PacketBody { override val kind = PacketKind.DELIVERY_RECEIPT }
+data class DeliveryReceiptBody(
+    val messageId: String,
+    val circleId: String? = null,
+    val membershipVersion: Long? = null,
+) : PacketBody {
+    init {
+        require((circleId == null) == (membershipVersion == null)) {
+            "Circle receipt metadata must be complete"
+        }
+    }
+    override val kind = PacketKind.DELIVERY_RECEIPT
+}
+enum class CircleMemberRole(val wireId: Int) {
+    OWNER(1), MEMBER(2);
+
+    companion object {
+        fun fromWireId(id: Int) = entries.firstOrNull { it.wireId == id }
+            ?: throw IllegalArgumentException("Unsupported Circle member role $id")
+    }
+}
+data class CircleSnapshotMember(val nodeId: String, val role: CircleMemberRole)
 data class CircleInviteBody(
     val inviteId: String,
     val circleId: String,
@@ -119,6 +139,7 @@ data class CircleInviteBody(
     val ownerNodeId: String,
     val membershipVersion: Long,
     val expiresAt: Long,
+    val activeMemberPreview: List<CircleSnapshotMember> = emptyList(),
 ) : PacketBody { override val kind = PacketKind.CIRCLE_INVITE }
 data class CircleInviteAcceptBody(val inviteId: String, val circleId: String) : PacketBody { override val kind = PacketKind.CIRCLE_INVITE_ACCEPT }
 data class CircleInviteDeclineBody(val inviteId: String, val circleId: String) : PacketBody { override val kind = PacketKind.CIRCLE_INVITE_DECLINE }
@@ -127,13 +148,17 @@ data class CircleMembershipSnapshotBody(
     val membershipVersion: Long,
     val circleName: String,
     val ownerNodeId: String,
-    val activeMemberNodeIds: List<String>,
+    val members: List<CircleSnapshotMember>,
     val dissolved: Boolean = false,
-) : PacketBody { override val kind = PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT }
+) : PacketBody {
+    val activeMemberNodeIds: List<String> get() = members.map { it.nodeId }
+    override val kind = PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT
+}
 data class CircleTextBody(val circleId: String, val membershipVersion: Long, val text: String) : PacketBody { override val kind = PacketKind.CIRCLE_TEXT }
 data class CircleStatusBody(
     val circleId: String,
     val membershipVersion: Long,
+    val subjectNodeId: String,
     val status: SafetyStatus,
     val note: String?,
 ) : PacketBody { override val kind = PacketKind.CIRCLE_STATUS }

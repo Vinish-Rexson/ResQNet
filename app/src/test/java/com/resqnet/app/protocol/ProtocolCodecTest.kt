@@ -16,12 +16,18 @@ class ProtocolCodecTest {
             payload(
                 PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT,
                 Audience.Circle("circle-1"),
-                CircleMembershipSnapshotBody("circle-1", 3, "Family", "node-a", listOf("node-a", "node-b")),
+                CircleMembershipSnapshotBody(
+                    "circle-1", 3, "Family", "node-a",
+                    listOf(
+                        CircleSnapshotMember("node-a", CircleMemberRole.OWNER),
+                        CircleSnapshotMember("node-b", CircleMemberRole.MEMBER),
+                    ),
+                ),
             ),
             payload(
                 PacketKind.CIRCLE_STATUS,
                 Audience.Circle("circle-1"),
-                CircleStatusBody("circle-1", 3, SafetyStatus.NEED_HELP, "Need insulin"),
+                CircleStatusBody("circle-1", 3, "node-a", SafetyStatus.NEED_HELP, "Need insulin"),
             ),
         )
 
@@ -82,7 +88,7 @@ class ProtocolCodecTest {
         }
         assertThrows(IllegalArgumentException::class.java) {
             ProtocolCodec.encodePayload(
-                payload(PacketKind.CIRCLE_STATUS, Audience.Circle("c"), CircleStatusBody("c", 1, SafetyStatus.SAFE, "é".repeat(81))),
+                payload(PacketKind.CIRCLE_STATUS, Audience.Circle("c"), CircleStatusBody("c", 1, "node-a", SafetyStatus.SAFE, "é".repeat(81))),
             )
         }
         assertThrows(IllegalArgumentException::class.java) {
@@ -90,7 +96,10 @@ class ProtocolCodecTest {
                 payload(
                     PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT,
                     Audience.Circle("c"),
-                    CircleMembershipSnapshotBody("c", 1, "Family", "owner", List(21) { "member-$it" }),
+                    CircleMembershipSnapshotBody(
+                        "c", 1, "Family", "owner",
+                        List(21) { CircleSnapshotMember("member-$it", CircleMemberRole.MEMBER) },
+                    ),
                 ),
             )
         }
@@ -153,17 +162,23 @@ class ProtocolCodecTest {
             PacketKind.CONTACT_ACCEPT -> Audience.DirectNode("node-b") to ContactAcceptBody("request")
             PacketKind.CONTACT_DECLINE -> Audience.DirectNode("node-b") to ContactDeclineBody("request")
             PacketKind.DIRECT_TEXT -> Audience.DirectNode("node-b") to DirectTextBody("conversation", "Direct")
-            PacketKind.DELIVERY_RECEIPT -> Audience.DirectNode("node-b") to DeliveryReceiptBody("message")
+            PacketKind.DELIVERY_RECEIPT -> Audience.DirectNode("node-b") to DeliveryReceiptBody(
+                "message", "circle", 1,
+            )
             PacketKind.CIRCLE_INVITE -> Audience.DirectNode("node-b") to CircleInviteBody(
                 "invite", "circle", "Family", "node-a", 1, 200,
+                listOf(CircleSnapshotMember("node-a", CircleMemberRole.OWNER)),
             )
             PacketKind.CIRCLE_INVITE_ACCEPT -> Audience.DirectNode("node-b") to CircleInviteAcceptBody("invite", "circle")
             PacketKind.CIRCLE_INVITE_DECLINE -> Audience.DirectNode("node-b") to CircleInviteDeclineBody("invite", "circle")
             PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT -> Audience.Circle("circle") to CircleMembershipSnapshotBody(
-                "circle", 1, "Family", "node-a", listOf("node-a"),
+                "circle", 1, "Family", "node-a",
+                listOf(CircleSnapshotMember("node-a", CircleMemberRole.OWNER)),
             )
             PacketKind.CIRCLE_TEXT -> Audience.Circle("circle") to CircleTextBody("circle", 1, "Circle")
-            PacketKind.CIRCLE_STATUS -> Audience.Circle("circle") to CircleStatusBody("circle", 1, SafetyStatus.SAFE, null)
+            PacketKind.CIRCLE_STATUS -> Audience.Circle("circle") to CircleStatusBody(
+                "circle", 1, "node-a", SafetyStatus.SAFE, null,
+            )
             PacketKind.CIRCLE_LEAVE_REQUEST -> Audience.DirectNode("node-b") to CircleLeaveRequestBody("circle")
         }
         return payload(kind, audience, body).copy(relayPolicy = relayPolicy)

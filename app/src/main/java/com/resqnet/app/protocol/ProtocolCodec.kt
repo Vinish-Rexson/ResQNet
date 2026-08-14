@@ -184,25 +184,40 @@ object ProtocolCodec {
         is ContactAcceptBody -> writeBoundedString(body.requestId, MAX_ID_BYTES)
         is ContactDeclineBody -> writeBoundedString(body.requestId, MAX_ID_BYTES)
         is DirectTextBody -> { writeBoundedString(body.conversationId, MAX_ID_BYTES); writeBoundedString(body.text, MAX_TEXT_BYTES) }
-        is DeliveryReceiptBody -> writeBoundedString(body.messageId, MAX_ID_BYTES)
+        is DeliveryReceiptBody -> {
+            writeBoundedString(body.messageId, MAX_ID_BYTES)
+            body.circleId?.let {
+                writeBoolean(true)
+                writeBoundedString(it, MAX_ID_BYTES)
+                writeLong(requireNotNull(body.membershipVersion))
+            }
+        }
         is CircleInviteBody -> {
             writeBoundedString(body.inviteId, MAX_ID_BYTES); writeBoundedString(body.circleId, MAX_ID_BYTES)
             writeBoundedString(body.circleName, MAX_NAME_BYTES); writeBoundedString(body.ownerNodeId, MAX_ID_BYTES)
             writeLong(body.membershipVersion); writeLong(body.expiresAt)
+            require(body.activeMemberPreview.size <= MAX_CIRCLE_MEMBERS) { "Too many active Circle members" }
+            writeInt(body.activeMemberPreview.size)
+            body.activeMemberPreview.forEach {
+                writeBoundedString(it.nodeId, MAX_ID_BYTES); writeByte(it.role.wireId)
+            }
         }
         is CircleInviteAcceptBody -> { writeBoundedString(body.inviteId, MAX_ID_BYTES); writeBoundedString(body.circleId, MAX_ID_BYTES) }
         is CircleInviteDeclineBody -> { writeBoundedString(body.inviteId, MAX_ID_BYTES); writeBoundedString(body.circleId, MAX_ID_BYTES) }
         is CircleMembershipSnapshotBody -> {
             writeBoundedString(body.circleId, MAX_ID_BYTES); writeLong(body.membershipVersion)
             writeBoundedString(body.circleName, MAX_NAME_BYTES); writeBoundedString(body.ownerNodeId, MAX_ID_BYTES)
-            require(body.activeMemberNodeIds.size <= MAX_CIRCLE_MEMBERS) { "Too many active Circle members" }
-            writeInt(body.activeMemberNodeIds.size)
-            body.activeMemberNodeIds.forEach { writeBoundedString(it, MAX_ID_BYTES) }
+            require(body.members.size <= MAX_CIRCLE_MEMBERS) { "Too many active Circle members" }
+            writeInt(body.members.size)
+            body.members.forEach {
+                writeBoundedString(it.nodeId, MAX_ID_BYTES); writeByte(it.role.wireId)
+            }
             writeBoolean(body.dissolved)
         }
         is CircleTextBody -> { writeBoundedString(body.circleId, MAX_ID_BYTES); writeLong(body.membershipVersion); writeBoundedString(body.text, MAX_TEXT_BYTES) }
         is CircleStatusBody -> {
-            writeBoundedString(body.circleId, MAX_ID_BYTES); writeLong(body.membershipVersion); writeByte(body.status.wireId)
+            writeBoundedString(body.circleId, MAX_ID_BYTES); writeLong(body.membershipVersion)
+            writeBoundedString(body.subjectNodeId, MAX_ID_BYTES); writeByte(body.status.wireId)
             writeBoolean(body.note != null); body.note?.let { writeBoundedString(it, MAX_NOTE_BYTES) }
         }
         is CircleLeaveRequestBody -> writeBoundedString(body.circleId, MAX_ID_BYTES)
@@ -214,10 +229,20 @@ object ProtocolCodec {
         PacketKind.CONTACT_ACCEPT -> ContactAcceptBody(readBoundedString(MAX_ID_BYTES))
         PacketKind.CONTACT_DECLINE -> ContactDeclineBody(readBoundedString(MAX_ID_BYTES))
         PacketKind.DIRECT_TEXT -> DirectTextBody(readBoundedString(MAX_ID_BYTES), readBoundedString(MAX_TEXT_BYTES))
-        PacketKind.DELIVERY_RECEIPT -> DeliveryReceiptBody(readBoundedString(MAX_ID_BYTES))
+        PacketKind.DELIVERY_RECEIPT -> {
+            val messageId = readBoundedString(MAX_ID_BYTES)
+            if (available() == 0) DeliveryReceiptBody(messageId)
+            else {
+                require(readBoolean()) { "Invalid Circle receipt metadata" }
+                DeliveryReceiptBody(messageId, readBoundedString(MAX_ID_BYTES), readLong())
+            }
+        }
         PacketKind.CIRCLE_INVITE -> CircleInviteBody(
             readBoundedString(MAX_ID_BYTES), readBoundedString(MAX_ID_BYTES), readBoundedString(MAX_NAME_BYTES),
             readBoundedString(MAX_ID_BYTES), readLong(), readLong(),
+            List(readMemberCount()) {
+                CircleSnapshotMember(readBoundedString(MAX_ID_BYTES), CircleMemberRole.fromWireId(readUnsignedByte()))
+            },
         )
         PacketKind.CIRCLE_INVITE_ACCEPT -> CircleInviteAcceptBody(readBoundedString(MAX_ID_BYTES), readBoundedString(MAX_ID_BYTES))
         PacketKind.CIRCLE_INVITE_DECLINE -> CircleInviteDeclineBody(readBoundedString(MAX_ID_BYTES), readBoundedString(MAX_ID_BYTES))
@@ -225,14 +250,25 @@ object ProtocolCodec {
             val circleId = readBoundedString(MAX_ID_BYTES); val version = readLong()
             val name = readBoundedString(MAX_NAME_BYTES); val owner = readBoundedString(MAX_ID_BYTES)
             val count = readInt(); require(count in 0..MAX_CIRCLE_MEMBERS) { "Too many active Circle members" }
-            CircleMembershipSnapshotBody(circleId, version, name, owner, List(count) { readBoundedString(MAX_ID_BYTES) }, readBoolean())
+            CircleMembershipSnapshotBody(
+                circleId, version, name, owner,
+                List(count) {
+                    CircleSnapshotMember(readBoundedString(MAX_ID_BYTES), CircleMemberRole.fromWireId(readUnsignedByte()))
+                },
+                readBoolean(),
+            )
         }
         PacketKind.CIRCLE_TEXT -> CircleTextBody(readBoundedString(MAX_ID_BYTES), readLong(), readBoundedString(MAX_TEXT_BYTES))
         PacketKind.CIRCLE_STATUS -> CircleStatusBody(
-            readBoundedString(MAX_ID_BYTES), readLong(), SafetyStatus.fromWireId(readUnsignedByte()),
+            readBoundedString(MAX_ID_BYTES), readLong(), readBoundedString(MAX_ID_BYTES),
+            SafetyStatus.fromWireId(readUnsignedByte()),
             if (readBoolean()) readBoundedString(MAX_NOTE_BYTES) else null,
         )
         PacketKind.CIRCLE_LEAVE_REQUEST -> CircleLeaveRequestBody(readBoundedString(MAX_ID_BYTES))
+    }
+
+    private fun DataInputStream.readMemberCount(): Int = readInt().also {
+        require(it in 0..MAX_CIRCLE_MEMBERS) { "Too many active Circle members" }
     }
 
     private fun output(block: (DataOutputStream) -> Unit): ByteArray =

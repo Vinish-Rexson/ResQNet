@@ -6,9 +6,79 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
+import com.resqnet.app.circles.*
 
 @Dao
 interface MeshDao {
+    @Query("SELECT * FROM circles ORDER BY updatedAt DESC, circleId ASC")
+    fun observeCircles(): Flow<List<CircleEntity>>
+
+    @Query("SELECT * FROM circles WHERE circleId = :circleId")
+    suspend fun circle(circleId: String): CircleEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertCircle(circle: CircleEntity)
+
+    @Query("SELECT * FROM circle_invitations WHERE inviteId = :inviteId")
+    suspend fun circleInvitation(inviteId: String): CircleInvitationEntity?
+
+    @Query("SELECT * FROM circle_invitations WHERE circleId = :circleId")
+    suspend fun circleInvitations(circleId: String): List<CircleInvitationEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertCircleInvitation(invitation: CircleInvitationEntity)
+
+    @Query("SELECT * FROM circle_snapshots WHERE circleId = :circleId ORDER BY membershipVersion DESC LIMIT 1")
+    suspend fun latestCircleSnapshot(circleId: String): CircleSnapshotEntity?
+
+    @Query("SELECT * FROM circle_snapshots WHERE circleId = :circleId AND membershipVersion = :membershipVersion")
+    suspend fun circleSnapshot(circleId: String, membershipVersion: Long): CircleSnapshotEntity?
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertCircleSnapshot(snapshot: CircleSnapshotEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertCircleMembers(members: List<CircleMemberEntity>)
+
+    @Query("SELECT * FROM circle_members WHERE circleId = :circleId AND membershipVersion = :membershipVersion ORDER BY role ASC, nodeId ASC")
+    suspend fun circleMembers(circleId: String, membershipVersion: Long): List<CircleMemberEntity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertCircleMessage(message: CircleMessageEntity): Long
+
+    @Query("SELECT * FROM circle_messages WHERE messageId = :messageId")
+    suspend fun circleMessage(messageId: String): CircleMessageEntity?
+
+    @Query("SELECT * FROM circle_messages WHERE circleId = :circleId ORDER BY createdAt ASC, originSequence ASC, messageId ASC")
+    suspend fun circleMessages(circleId: String): List<CircleMessageEntity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertPendingCirclePacket(packet: PendingCirclePacketEntity): Long
+
+    @Query("SELECT * FROM pending_circle_packets WHERE circleId = :circleId ORDER BY packetId ASC")
+    suspend fun pendingCirclePackets(circleId: String): List<PendingCirclePacketEntity>
+
+    @Query("DELETE FROM pending_circle_packets WHERE packetId = :packetId")
+    suspend fun deletePendingCirclePacket(packetId: String)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertCircleReceipt(receipt: CircleMessageReceiptEntity): Long
+
+    @Query("SELECT * FROM circle_message_receipts WHERE messageId = :messageId AND recipientNodeId = :recipientNodeId")
+    suspend fun circleReceipt(messageId: String, recipientNodeId: String): CircleMessageReceiptEntity?
+
+    @Query("SELECT * FROM circle_message_receipts WHERE messageId = :messageId")
+    suspend fun circleReceipts(messageId: String): List<CircleMessageReceiptEntity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertCircleStatus(event: CircleStatusEventEntity): Long
+
+    @Query("SELECT * FROM circle_status_events WHERE circleId = :circleId AND memberNodeId = :memberNodeId ORDER BY originSequence DESC, packetId DESC LIMIT 1")
+    suspend fun latestCircleStatus(circleId: String, memberNodeId: String): CircleStatusEventEntity?
+
+    @Query("SELECT * FROM circle_status_events WHERE circleId = :circleId AND memberNodeId = :memberNodeId ORDER BY originSequence DESC, packetId DESC")
+    suspend fun circleStatusHistory(circleId: String, memberNodeId: String): List<CircleStatusEventEntity>
+
     @Query("SELECT * FROM contacts ORDER BY displayName COLLATE NOCASE ASC, nodeId ASC")
     fun observeContacts(): Flow<List<ContactEntity>>
 
@@ -105,6 +175,12 @@ interface MeshDao {
 
     @Query("SELECT * FROM packets WHERE packetId IN (:ids)")
     suspend fun packets(ids: List<String>): List<PacketEntity>
+
+    @Query("UPDATE packets SET relayEligible = 0 WHERE supersessionKey = :supersessionKey AND packetId != :keepPacketId")
+    suspend fun supersedePackets(supersessionKey: String, keepPacketId: String)
+
+    @Query("UPDATE packets SET relayEligible = 0 WHERE packetId = :packetId")
+    suspend fun resolvePacket(packetId: String)
 
     @Query(
         "SELECT packetId FROM packets WHERE relayEligible = 1 " +

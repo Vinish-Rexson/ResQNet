@@ -15,6 +15,8 @@ interface PacketRepository {
     suspend fun markProjected(packetId: String): Boolean
     suspend fun markSuppressed(packetId: String): Boolean = false
     suspend fun markRelayed(packetId: String, peerId: String)
+    suspend fun supersede(supersessionKey: String, keepPacketId: String) = Unit
+    suspend fun resolve(packetId: String) = Unit
     suspend fun cleanup()
 }
 
@@ -84,6 +86,9 @@ class RoomPacketRepository(
         val now = clock()
         dao.upsertDelivery(PeerDeliveryEntity(packetId, peerId, true, 0, now, now))
     }
+    override suspend fun supersede(supersessionKey: String, keepPacketId: String) =
+        dao.supersedePackets(supersessionKey, keepPacketId)
+    override suspend fun resolve(packetId: String) = dao.resolvePacket(packetId)
     override suspend fun cleanup() = dao.deleteExpiredEphemeralPackets(clock())
 }
 

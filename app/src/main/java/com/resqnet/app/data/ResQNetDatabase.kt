@@ -5,9 +5,10 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.resqnet.app.circles.*
 
-const val RESQNET_DATABASE_VERSION = 3
-private val DESTRUCTIVE_RESET_FROM_VERSIONS = intArrayOf(1, 2)
+const val RESQNET_DATABASE_VERSION = 4
+private val DESTRUCTIVE_RESET_FROM_VERSIONS = intArrayOf(1, 2, 3)
 
 fun canDestructivelyResetFrom(version: Int): Boolean = version in DESTRUCTIVE_RESET_FROM_VERSIONS
 
@@ -21,6 +22,14 @@ fun canDestructivelyResetFrom(version: Int): Boolean = version in DESTRUCTIVE_RE
         PeerDeliveryEntity::class,
         MessageReceiptEntity::class,
         LocalStateEntity::class,
+        CircleEntity::class,
+        CircleInvitationEntity::class,
+        CircleSnapshotEntity::class,
+        CircleMemberEntity::class,
+        CircleMessageEntity::class,
+        PendingCirclePacketEntity::class,
+        CircleMessageReceiptEntity::class,
+        CircleStatusEventEntity::class,
     ],
     version = RESQNET_DATABASE_VERSION,
     exportSchema = false,

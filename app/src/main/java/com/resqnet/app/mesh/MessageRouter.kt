@@ -3,6 +3,7 @@ package com.resqnet.app.mesh
 import com.resqnet.app.contacts.ContactDirectHandler
 import com.resqnet.app.contacts.ContactDirectPort
 import com.resqnet.app.contacts.DISCOVERY_FRESHNESS_WINDOW_MS
+import com.resqnet.app.circles.*
 import com.resqnet.app.data.*
 import com.resqnet.app.protocol.*
 import com.resqnet.app.security.IdentitySigner
@@ -39,10 +40,12 @@ class MessageRouter(
     private val receipts: ReceiptRepository? = null,
     discoveryFreshnessWindowMs: Long = DISCOVERY_FRESHNESS_WINDOW_MS,
     private val localProjections: LocalProjectionRepository? = null,
-) : ContactDirectPort {
+    circles: CircleRepository? = null,
+) : ContactDirectPort, CirclePort {
     private val contactDirect = ContactDirectHandler(
         this, packets, conversations, peers, contacts, receipts, discoveryFreshnessWindowMs,
     )
+    private val circleHandler = CircleHandler(this, packets, contacts, circles)
     override val localNodeId: String get() = signer.nodeId
     override fun localDisplayName() = displayName()
     override fun now() = clock()
@@ -76,6 +79,20 @@ class MessageRouter(
     suspend fun removeContact(nodeId: String) = contactDirect.removeContact(nodeId)
     suspend fun blockContact(nodeId: String) = contactDirect.blockContact(nodeId)
     suspend fun unblockContact(nodeId: String) = contactDirect.unblockContact(nodeId)
+    suspend fun createCircle(name: String) = circleHandler.createCircle(name)
+    suspend fun inviteToCircle(circleId: String, nodeId: String) = circleHandler.invite(circleId, nodeId)
+    suspend fun acceptCircleInvite(inviteId: String) = circleHandler.acceptInvite(inviteId)
+    suspend fun declineCircleInvite(inviteId: String) = circleHandler.declineInvite(inviteId)
+    suspend fun createCircleMessage(circleId: String, text: String) = circleHandler.createMessage(circleId, text)
+    suspend fun updateCircleStatus(circleId: String, status: SafetyStatus, note: String?) =
+        circleHandler.updateStatus(circleId, status, note)
+    suspend fun effectiveCircleStatus(circleId: String, memberNodeId: String) =
+        circleHandler.effectiveStatus(circleId, memberNodeId)
+    suspend fun circleDeliveryProgress(messageId: String) = circleHandler.deliveryProgress(messageId)
+    suspend fun leaveCircle(circleId: String) = circleHandler.leave(circleId)
+    suspend fun renameCircle(circleId: String, name: String) = circleHandler.rename(circleId, name)
+    suspend fun removeCircleMember(circleId: String, nodeId: String) = circleHandler.removeMember(circleId, nodeId)
+    suspend fun dissolveCircle(circleId: String) = circleHandler.dissolve(circleId)
 
     suspend fun ingest(envelope: RelayEnvelope, fromPeerId: String): IngestResult {
         envelope.boundsViolation(requireRelayable = true)?.let { return IngestResult.Rejected(it) }
@@ -212,16 +229,11 @@ class MessageRouter(
             contactDirect.recoverReceiptForProjectedDirect(payload)
             return IngestResult.Duplicate(existing.packetId)
         }
-        val canRetryProjection = existing.projectionState == ProjectionState.STORED_ONLY && when (payload.kind) {
-            PacketKind.PUBLIC_TEXT,
-            PacketKind.CONTACT_REQUEST,
-            PacketKind.CONTACT_ACCEPT,
-            PacketKind.CONTACT_DECLINE,
-            PacketKind.DIRECT_TEXT,
-            PacketKind.DELIVERY_RECEIPT,
-            -> true
-            else -> false
+        if (payload.kind == PacketKind.CIRCLE_TEXT && existing.projectionState == ProjectionState.PROJECTED) {
+            circleHandler.recoverReceipt(payload)
+            return IngestResult.Duplicate(existing.packetId)
         }
+        val canRetryProjection = existing.projectionState == ProjectionState.STORED_ONLY
         return if (canRetryProjection) {
             projectPayload(payload, incoming.originPublicKey, existing.hopCount)
         } else {
@@ -232,6 +244,19 @@ class MessageRouter(
     private suspend fun projectPayload(payload: PayloadV2, originPublicKey: ByteArray, hopCount: Int): IngestResult =
         when (payload.kind) {
             PacketKind.PUBLIC_TEXT -> projectPublic(payload, hopCount)
+            PacketKind.CIRCLE_INVITE,
+            PacketKind.CIRCLE_INVITE_ACCEPT,
+            PacketKind.CIRCLE_INVITE_DECLINE,
+            PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT,
+            PacketKind.CIRCLE_TEXT,
+            PacketKind.CIRCLE_STATUS,
+            PacketKind.CIRCLE_LEAVE_REQUEST,
+            -> circleHandler.project(payload, hopCount)
+            PacketKind.DELIVERY_RECEIPT -> if ((payload.body as DeliveryReceiptBody).circleId != null) {
+                circleHandler.project(payload, hopCount)
+            } else {
+                contactDirect.project(payload, originPublicKey, hopCount)
+            }
             else -> contactDirect.project(payload, originPublicKey, hopCount)
         }
 
@@ -245,6 +270,31 @@ class MessageRouter(
     override suspend fun suppress(packetId: String): IngestResult {
         packets.markSuppressed(packetId)
         return IngestResult.StoredOnly(packetId)
+    }
+
+    override suspend fun promoteCircleProcessed(packetId: String) = promoteProcessed(packetId)
+
+    override suspend fun suppressCircle(packetId: String) = suppress(packetId)
+
+    override suspend fun createLocalCirclePacket(
+        kind: PacketKind,
+        audience: Audience,
+        expiresAt: Long,
+        packetId: UUID,
+        body: () -> PacketBody,
+    ): PayloadV2 {
+        val now = clock()
+        val payload = PayloadV2(
+            packetId, kind, audience, signer.nodeId, displayName(), packets.nextSequence(), now,
+            expiresAt, kind.requiredRelayPolicy, body(),
+        )
+        val payloadBytes = ProtocolCodec.encodePayload(payload)
+        val packet = SignedPacket(payloadBytes, signer.sign(payloadBytes), signer.publicKey)
+        val envelope = RelayEnvelope(packet, DEFAULT_TTL, 0, listOf(signer.nodeId))
+        check(packets.insert(packetEntity(payload, envelope, projected = false, receivedAt = now))) {
+            "Packet ID collision"
+        }
+        return payload
     }
 
     override suspend fun createLocalPacket(
