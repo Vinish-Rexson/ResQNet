@@ -6,6 +6,11 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
+const val RESQNET_DATABASE_VERSION = 3
+private val DESTRUCTIVE_RESET_FROM_VERSIONS = intArrayOf(1, 2)
+
+fun canDestructivelyResetFrom(version: Int): Boolean = version in DESTRUCTIVE_RESET_FROM_VERSIONS
+
 @TypeConverters(PersistenceConverters::class)
 @Database(
     entities = [
@@ -17,7 +22,7 @@ import androidx.room.TypeConverters
         MessageReceiptEntity::class,
         LocalStateEntity::class,
     ],
-    version = 2,
+    version = RESQNET_DATABASE_VERSION,
     exportSchema = false,
 )
 abstract class ResQNetDatabase : RoomDatabase() {
@@ -26,6 +31,9 @@ abstract class ResQNetDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): ResQNetDatabase = Room.databaseBuilder(
             context.applicationContext, ResQNetDatabase::class.java, "resqnet.db"
-        ).fallbackToDestructiveMigration(true).build()
+        ).fallbackToDestructiveMigrationFrom(
+            dropAllTables = true,
+            *DESTRUCTIVE_RESET_FROM_VERSIONS,
+        ).build()
     }
 }

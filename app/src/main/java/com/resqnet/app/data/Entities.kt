@@ -87,7 +87,10 @@ data class PeerEntity(
     val lastSeenAt: Long,
 )
 
-@Entity(tableName = "contacts", indices = [Index("state"), Index("expiresAt")])
+@Entity(
+    tableName = "contacts",
+    indices = [Index("state"), Index("outgoingRequestExpiresAt"), Index("incomingRequestExpiresAt")],
+)
 data class ContactEntity(
     @PrimaryKey val nodeId: String,
     val displayName: String,
@@ -95,10 +98,25 @@ data class ContactEntity(
     val fingerprint: String,
     val state: ContactState,
     val outgoingRequestId: String?,
+    val outgoingRequestExpiresAt: Long?,
     val incomingRequestId: String?,
-    val expiresAt: Long,
+    val incomingRequestExpiresAt: Long?,
     val updatedAt: Long,
 )
+
+fun ContactEntity.withoutExpiredRequests(now: Long): ContactEntity? {
+    if (!state.isPending) return this
+    val outgoingValid = outgoingRequestId != null && (outgoingRequestExpiresAt ?: Long.MIN_VALUE) > now
+    val incomingValid = incomingRequestId != null && (incomingRequestExpiresAt ?: Long.MIN_VALUE) > now
+    if (!outgoingValid && !incomingValid) return null
+    return copy(
+        state = if (incomingValid) ContactState.PENDING_INCOMING else ContactState.PENDING_OUTGOING,
+        outgoingRequestId = outgoingRequestId.takeIf { outgoingValid },
+        outgoingRequestExpiresAt = outgoingRequestExpiresAt.takeIf { outgoingValid },
+        incomingRequestId = incomingRequestId.takeIf { incomingValid },
+        incomingRequestExpiresAt = incomingRequestExpiresAt.takeIf { incomingValid },
+    )
+}
 
 @Entity(tableName = "deliveries", primaryKeys = ["messageId", "peerId"], indices = [Index("peerId")])
 data class PeerDeliveryEntity(

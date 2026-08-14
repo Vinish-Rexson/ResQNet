@@ -21,8 +21,8 @@ interface MeshDao {
     @Query("DELETE FROM contacts WHERE nodeId = :nodeId")
     suspend fun deleteContact(nodeId: String)
 
-    @Query("DELETE FROM contacts WHERE state IN ('PENDING_OUTGOING', 'PENDING_INCOMING') AND expiresAt <= :now")
-    suspend fun deleteExpiredPendingContacts(now: Long)
+    @Query("SELECT * FROM contacts WHERE state IN ('PENDING_OUTGOING', 'PENDING_INCOMING')")
+    suspend fun pendingContacts(): List<ContactEntity>
 
     @Query("SELECT * FROM conversation_messages ORDER BY createdAt ASC, originSequence ASC, messageId ASC")
     fun observeMessages(): Flow<List<ConversationMessageEntity>>

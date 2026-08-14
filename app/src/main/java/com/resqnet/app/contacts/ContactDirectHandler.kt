@@ -6,6 +6,8 @@ import com.resqnet.app.protocol.*
 import java.security.MessageDigest
 import java.util.UUID
 
+const val DISCOVERY_FRESHNESS_WINDOW_MS = 2L * 60 * 1000
+
 internal interface ContactDirectPort {
     val localNodeId: String
     fun localDisplayName(): String
@@ -17,6 +19,11 @@ internal interface ContactDirectPort {
         packetId: UUID = UUID.randomUUID(),
         body: (UUID) -> PacketBody,
     ): PayloadV2
+    suspend fun createLocalDirectMessage(
+        targetNodeId: String,
+        conversationId: String,
+        text: String,
+    ): ConversationMessageEntity
     suspend fun projectConversation(
         payload: PayloadV2,
         originName: String,
@@ -34,6 +41,7 @@ internal class ContactDirectHandler(
     private val peers: PeerRepository,
     private val contacts: ContactRepository?,
     private val receipts: ReceiptRepository?,
+    private val discoveryFreshnessWindowMs: Long,
 ) {
     suspend fun createDirectMessage(nodeId: String, text: String): ConversationMessageEntity {
         val clean = text.trim()
@@ -44,31 +52,22 @@ internal class ContactDirectHandler(
         val contact = requireNotNull(contacts?.find(nodeId)) { "Direct messages require a trusted contact" }
         require(contact.state == ContactState.TRUSTED) { "Direct messages require a trusted, unblocked contact" }
         val conversationId = directConversationId(port.localNodeId, nodeId)
-        val payload = port.createLocalPacket(
-            PacketKind.DIRECT_TEXT, Audience.DirectNode(nodeId), port.now() + PROPAGATION_WINDOW_MS,
-        ) { DirectTextBody(conversationId, clean) }
-        check(port.projectConversation(payload, port.localDisplayName(), true, 0) is IngestResult.Projected) {
-            "Could not project local direct message"
-        }
-        return checkNotNull(conversations.find(payload.packetId.toString())) { "Projected message is missing" }
+        return port.createLocalDirectMessage(nodeId, conversationId, clean)
     }
 
     suspend fun requestContact(nodeId: String, confirmedFingerprint: String): ContactEntity {
         val contactStore = requireNotNull(contacts) { "Contact persistence is unavailable" }
         val peer = requireNotNull(peers.find(nodeId)) { "Contact requests require a currently discovered peer" }
+        val discoveryAge = port.now() - peer.lastSeenAt
+        require(discoveryAge in 0..discoveryFreshnessWindowMs) { "Peer discovery is stale" }
         require(peer.fingerprint == confirmedFingerprint) { "Displayed fingerprint was not confirmed" }
-        contactStore.find(nodeId)?.let { existing ->
-            if (!existing.state.isPending || existing.expiresAt > port.now()) {
-                throw IllegalStateException("A contact state already exists for this node")
-            }
-            contactStore.delete(nodeId)
-        }
+        currentContact(nodeId)?.let { throw IllegalStateException("A contact state already exists for this node") }
         val payload = port.createLocalPacket(
             PacketKind.CONTACT_REQUEST, Audience.DirectNode(nodeId), port.now() + PROPAGATION_WINDOW_MS,
         ) { packetId -> ContactRequestBody(packetId.toString(), port.localDisplayName()) }
         val contact = ContactEntity(
             nodeId, peer.displayName, peer.publicKey, peer.fingerprint, ContactState.PENDING_OUTGOING,
-            payload.packetId.toString(), null, payload.expiresAt, port.now(),
+            payload.packetId.toString(), payload.expiresAt, null, null, port.now(),
         )
         contactStore.upsert(contact)
         packets.markProjected(payload.packetId.toString())
@@ -77,8 +76,12 @@ internal class ContactDirectHandler(
 
     suspend fun acceptContact(nodeId: String): ContactEntity {
         val contactStore = requireNotNull(contacts) { "Contact persistence is unavailable" }
-        val existing = requireNotNull(contactStore.find(nodeId)) { "No pending contact request" }
-        require(existing.state == ContactState.PENDING_INCOMING && existing.expiresAt > port.now()) {
+        val existing = requireNotNull(currentContact(nodeId)) { "No pending contact request" }
+        require(
+            existing.state == ContactState.PENDING_INCOMING &&
+                existing.incomingRequestId != null &&
+                (existing.incomingRequestExpiresAt ?: Long.MIN_VALUE) > port.now()
+        ) {
             "No active incoming contact request"
         }
         val requestId = requireNotNull(existing.incomingRequestId)
@@ -86,8 +89,10 @@ internal class ContactDirectHandler(
             PacketKind.CONTACT_ACCEPT, Audience.DirectNode(nodeId), port.now() + PROPAGATION_WINDOW_MS,
         ) { ContactAcceptBody(requestId) }
         val trusted = existing.copy(
-            state = ContactState.TRUSTED, outgoingRequestId = null, incomingRequestId = null,
-            expiresAt = Long.MAX_VALUE, updatedAt = port.now(),
+            state = ContactState.TRUSTED,
+            outgoingRequestId = null, outgoingRequestExpiresAt = null,
+            incomingRequestId = null, incomingRequestExpiresAt = null,
+            updatedAt = port.now(),
         )
         contactStore.upsert(trusted)
         packets.markProjected(payload.packetId.toString())
@@ -96,15 +101,23 @@ internal class ContactDirectHandler(
 
     suspend fun declineContact(nodeId: String) {
         val contactStore = requireNotNull(contacts) { "Contact persistence is unavailable" }
-        val existing = requireNotNull(contactStore.find(nodeId)) { "No pending contact request" }
-        require(existing.state == ContactState.PENDING_INCOMING && existing.expiresAt > port.now()) {
+        val existing = requireNotNull(currentContact(nodeId)) { "No pending contact request" }
+        require(
+            existing.state == ContactState.PENDING_INCOMING &&
+                existing.incomingRequestId != null &&
+                (existing.incomingRequestExpiresAt ?: Long.MIN_VALUE) > port.now()
+        ) {
             "No active incoming contact request"
         }
         val requestId = requireNotNull(existing.incomingRequestId)
         val payload = port.createLocalPacket(
             PacketKind.CONTACT_DECLINE, Audience.DirectNode(nodeId), port.now() + PROPAGATION_WINDOW_MS,
         ) { ContactDeclineBody(requestId) }
-        contactStore.delete(nodeId)
+        val remaining = existing.copy(
+            incomingRequestId = null,
+            incomingRequestExpiresAt = null,
+        ).withoutExpiredRequests(port.now())
+        if (remaining == null) contactStore.delete(nodeId) else contactStore.upsert(remaining)
         packets.markProjected(payload.packetId.toString())
     }
 
@@ -118,7 +131,7 @@ internal class ContactDirectHandler(
         return ContactEntity(
             nodeId, existing?.displayName ?: peer!!.displayName,
             existing?.publicKey ?: peer!!.publicKey, existing?.fingerprint ?: peer!!.fingerprint,
-            ContactState.BLOCKED, null, null, Long.MAX_VALUE, port.now(),
+            ContactState.BLOCKED, null, null, null, null, port.now(),
         ).also { contactStore.upsert(it) }
     }
 
@@ -150,21 +163,17 @@ internal class ContactDirectHandler(
         if ((payload.audience as Audience.DirectNode).nodeId != port.localNodeId) return IngestResult.StoredOnly(packetId)
         val body = payload.body as ContactRequestBody
         if (body.requestId != packetId) return port.suppress(packetId)
-        var current = contactStore.find(payload.originNodeId)
-        if (current?.state?.isPending == true && current.expiresAt <= port.now()) {
-            contactStore.delete(payload.originNodeId)
-            current = null
-        }
+        val current = currentContact(payload.originNodeId)
         if (current?.state == ContactState.BLOCKED) return port.suppress(packetId)
         val contact = when (current?.state) {
             ContactState.TRUSTED, ContactState.PENDING_INCOMING -> current
             ContactState.PENDING_OUTGOING -> current.copy(
                 state = ContactState.PENDING_INCOMING, incomingRequestId = packetId,
-                expiresAt = payload.expiresAt, updatedAt = port.now(),
+                incomingRequestExpiresAt = payload.expiresAt, updatedAt = port.now(),
             )
             null -> ContactEntity(
                 payload.originNodeId, body.requesterName, originPublicKey, displayFingerprint(originPublicKey),
-                ContactState.PENDING_INCOMING, null, packetId, payload.expiresAt, port.now(),
+                ContactState.PENDING_INCOMING, null, null, packetId, payload.expiresAt, port.now(),
             )
             ContactState.BLOCKED -> return port.suppress(packetId)
         }
@@ -176,14 +185,19 @@ internal class ContactDirectHandler(
         val packetId = payload.packetId.toString()
         val contactStore = contacts ?: return IngestResult.StoredOnly(packetId)
         if ((payload.audience as Audience.DirectNode).nodeId != port.localNodeId) return IngestResult.StoredOnly(packetId)
-        val current = contactStore.find(payload.originNodeId) ?: return port.suppress(packetId)
+        val current = currentContact(payload.originNodeId) ?: return port.suppress(packetId)
         val requestId = (payload.body as ContactAcceptBody).requestId
-        if (current.state == ContactState.BLOCKED || current.outgoingRequestId != requestId || current.expiresAt <= port.now()) {
+        if (
+            current.state == ContactState.BLOCKED || current.outgoingRequestId != requestId ||
+            (current.outgoingRequestExpiresAt ?: Long.MIN_VALUE) <= port.now()
+        ) {
             return port.suppress(packetId)
         }
         contactStore.upsert(current.copy(
-            state = ContactState.TRUSTED, outgoingRequestId = null, incomingRequestId = null,
-            expiresAt = Long.MAX_VALUE, updatedAt = port.now(),
+            state = ContactState.TRUSTED,
+            outgoingRequestId = null, outgoingRequestExpiresAt = null,
+            incomingRequestId = null, incomingRequestExpiresAt = null,
+            updatedAt = port.now(),
         ))
         return port.promoteProcessed(packetId)
     }
@@ -192,12 +206,19 @@ internal class ContactDirectHandler(
         val packetId = payload.packetId.toString()
         val contactStore = contacts ?: return IngestResult.StoredOnly(packetId)
         if ((payload.audience as Audience.DirectNode).nodeId != port.localNodeId) return IngestResult.StoredOnly(packetId)
-        val current = contactStore.find(payload.originNodeId) ?: return port.suppress(packetId)
+        val current = currentContact(payload.originNodeId) ?: return port.suppress(packetId)
         val requestId = (payload.body as ContactDeclineBody).requestId
-        if (current.state == ContactState.BLOCKED || current.outgoingRequestId != requestId || current.expiresAt <= port.now()) {
+        if (
+            current.state == ContactState.BLOCKED || current.outgoingRequestId != requestId ||
+            (current.outgoingRequestExpiresAt ?: Long.MIN_VALUE) <= port.now()
+        ) {
             return port.suppress(packetId)
         }
-        contactStore.delete(payload.originNodeId)
+        val remaining = current.copy(
+            outgoingRequestId = null,
+            outgoingRequestExpiresAt = null,
+        ).withoutExpiredRequests(port.now())
+        if (remaining == null) contactStore.delete(payload.originNodeId) else contactStore.upsert(remaining)
         return port.promoteProcessed(packetId)
     }
 
@@ -250,6 +271,18 @@ internal class ContactDirectHandler(
         receipts?.insert(MessageReceiptEntity(body.messageId, payload.originNodeId, packetId, port.now()))
         conversations.markDelivered(body.messageId)
         return port.promoteProcessed(packetId)
+    }
+
+    private suspend fun currentContact(nodeId: String): ContactEntity? {
+        val contactStore = contacts ?: return null
+        val current = contactStore.find(nodeId) ?: return null
+        val normalized = current.withoutExpiredRequests(port.now())
+        if (normalized == null) {
+            contactStore.delete(nodeId)
+        } else if (normalized != current) {
+            contactStore.upsert(normalized)
+        }
+        return normalized
     }
 
     private fun displayFingerprint(publicKey: ByteArray): String = MessageDigest.getInstance("SHA-256")

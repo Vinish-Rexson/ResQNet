@@ -1,5 +1,6 @@
 package com.resqnet.app.data
 
+import androidx.room.withTransaction
 import com.resqnet.app.protocol.MAX_RETAINED_MESSAGES
 import com.resqnet.app.protocol.NodeProfile
 import kotlinx.coroutines.flow.Flow
@@ -31,6 +32,10 @@ interface ConversationRepository {
 interface ReceiptRepository {
     suspend fun find(messageId: String, recipientNodeId: String): MessageReceiptEntity?
     suspend fun insert(receipt: MessageReceiptEntity): Boolean
+}
+
+interface LocalProjectionRepository {
+    suspend fun persist(packet: PacketEntity, message: ConversationMessageEntity): Boolean
 }
 
 interface PeerRepository {
@@ -82,6 +87,52 @@ class RoomReceiptRepository(private val dao: MeshDao) : ReceiptRepository {
     override suspend fun insert(receipt: MessageReceiptEntity) = dao.insertReceipt(receipt) != -1L
 }
 
+class RoomLocalProjectionRepository(
+    private val database: ResQNetDatabase,
+    private val dao: MeshDao,
+) : LocalProjectionRepository {
+    override suspend fun persist(
+        packet: PacketEntity,
+        message: ConversationMessageEntity,
+    ): Boolean = database.withTransaction {
+        val existingPacket = dao.packet(packet.packetId)
+        if (existingPacket == null) {
+            if (dao.insertPacket(packet) == -1L) return@withTransaction false
+        } else if (!sameLocalPacket(existingPacket, packet)) {
+            return@withTransaction false
+        }
+
+        val existingMessage = dao.conversationMessage(message.messageId)
+        if (existingMessage == null) {
+            if (dao.insertConversationMessage(message) == -1L) return@withTransaction false
+        } else if (!sameLocalMessage(existingMessage, message)) {
+            return@withTransaction false
+        }
+
+        if (dao.markPacketProjected(packet.packetId) == 0 &&
+            dao.packet(packet.packetId)?.projectionState != ProjectionState.PROJECTED
+        ) return@withTransaction false
+        dao.trimConversationMessages(MAX_RETAINED_MESSAGES)
+        true
+    }
+
+    private fun sameLocalPacket(existing: PacketEntity, expected: PacketEntity): Boolean =
+        existing.rawEnvelope.contentEquals(expected.rawEnvelope) &&
+            existing.copy(
+                rawEnvelope = expected.rawEnvelope,
+                projectionState = expected.projectionState,
+            ) == expected
+
+    private fun sameLocalMessage(
+        existing: ConversationMessageEntity,
+        expected: ConversationMessageEntity,
+    ): Boolean = existing.copy(
+        originName = expected.originName,
+        relayed = expected.relayed,
+        delivered = expected.delivered,
+    ) == expected
+}
+
 class RoomPeerRepository(
     private val dao: MeshDao,
     private val clock: () -> Long = System::currentTimeMillis,
@@ -100,5 +151,10 @@ class RoomContactRepository(private val dao: MeshDao) : ContactRepository {
     override suspend fun find(nodeId: String) = dao.contact(nodeId)
     override suspend fun upsert(contact: ContactEntity) = dao.upsertContact(contact)
     override suspend fun delete(nodeId: String) = dao.deleteContact(nodeId)
-    override suspend fun deleteExpiredPending(now: Long) = dao.deleteExpiredPendingContacts(now)
+    override suspend fun deleteExpiredPending(now: Long) {
+        dao.pendingContacts().forEach { contact ->
+            val normalized = contact.withoutExpiredRequests(now)
+            if (normalized == null) dao.deleteContact(contact.nodeId) else dao.upsertContact(normalized)
+        }
+    }
 }

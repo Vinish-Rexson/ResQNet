@@ -85,15 +85,41 @@ class ContactRouterTest {
         val alice = TestNode("Alice") { now }
         val bob = TestNode("Bob") { now }
         alice.discover(bob); bob.discover(alice)
-        alice.router.requestContact(bob.signer.nodeId, bob.signer.fingerprint)
+        val aliceRequest = alice.router.requestContact(bob.signer.nodeId, bob.signer.fingerprint)
 
         now += PROPAGATION_WINDOW_MS - 60_000L
+        bob.discover(alice)
         val bobRequest = bob.router.requestContact(alice.signer.nodeId, alice.signer.fingerprint)
         alice.router.ingest(bob.envelope(bobRequest.outgoingRequestId!!), bob.signer.nodeId)
+        val merged = alice.contacts.find(bob.signer.nodeId)!!
+        assertEquals(aliceRequest.outgoingRequestExpiresAt, merged.outgoingRequestExpiresAt)
+        assertEquals(bobRequest.outgoingRequestExpiresAt, merged.incomingRequestExpiresAt)
 
         now += 120_000L
         val accepted = alice.router.acceptContact(bob.signer.nodeId)
         assertEquals(ContactState.TRUSTED, accepted.state)
+    }
+
+    @Test fun crossedDeclinePreservesTheOtherRequestSoAValidAcceptConvergesBothSides() = runTest {
+        val now = 5_500L
+        val alice = TestNode("Alice") { now }
+        val bob = TestNode("Bob") { now }
+        alice.discover(bob); bob.discover(alice)
+        val aliceRequest = alice.router.requestContact(bob.signer.nodeId, bob.signer.fingerprint)
+        val bobRequest = bob.router.requestContact(alice.signer.nodeId, alice.signer.fingerprint)
+        alice.router.ingest(bob.envelope(bobRequest.outgoingRequestId!!), bob.signer.nodeId)
+        bob.router.ingest(alice.envelope(aliceRequest.outgoingRequestId!!), alice.signer.nodeId)
+
+        alice.router.declineContact(bob.signer.nodeId)
+        assertEquals(ContactState.PENDING_OUTGOING, alice.contacts.find(bob.signer.nodeId)?.state)
+        val decline = alice.only(PacketKind.CONTACT_DECLINE)
+        bob.router.ingest(decline, alice.signer.nodeId)
+        assertEquals(ContactState.PENDING_INCOMING, bob.contacts.find(alice.signer.nodeId)?.state)
+
+        bob.router.acceptContact(alice.signer.nodeId)
+        alice.router.ingest(bob.only(PacketKind.CONTACT_ACCEPT), bob.signer.nodeId)
+        assertEquals(ContactState.TRUSTED, alice.contacts.find(bob.signer.nodeId)?.state)
+        assertEquals(ContactState.TRUSTED, bob.contacts.find(alice.signer.nodeId)?.state)
     }
 
     @Test fun newRequestReplacesExpiredIncomingConfirmation() = runTest {
@@ -105,6 +131,7 @@ class ContactRouterTest {
         bob.router.ingest(alice.envelope(first.outgoingRequestId!!), alice.signer.nodeId)
 
         now += PROPAGATION_WINDOW_MS + 1
+        alice.discover(bob)
         val second = alice.router.requestContact(bob.signer.nodeId, bob.signer.fingerprint)
         bob.router.ingest(alice.envelope(second.outgoingRequestId!!), alice.signer.nodeId)
 
@@ -157,11 +184,31 @@ class ContactRouterTest {
         assertEquals(null, bob.contacts.find(alice.signer.nodeId))
     }
 
+    @Test fun contactRequestRequiresPeerSeenInsideDiscoveryFreshnessWindow() = runTest {
+        var now = 7_000L
+        val alice = TestNode("Alice") { now }
+        val bob = TestNode("Bob") { now }
+        alice.discover(bob)
+
+        now += DISCOVERY_FRESHNESS_WINDOW_MS + 1
+        val stale = runCatching {
+            alice.router.requestContact(bob.signer.nodeId, bob.signer.fingerprint)
+        }.exceptionOrNull()
+        assertTrue(stale is IllegalArgumentException)
+        assertEquals(null, alice.contacts.find(bob.signer.nodeId))
+
+        alice.discover(bob)
+        assertEquals(
+            ContactState.PENDING_OUTGOING,
+            alice.router.requestContact(bob.signer.nodeId, bob.signer.fingerprint).state,
+        )
+    }
+
     private class TestNode(name: String, now: () -> Long) {
         val signer = JvmSigner()
         val packetStore = MemoryPackets()
         val contacts = MemoryContacts()
-        private val peers = MemoryPeers()
+        private val peers = MemoryPeers(now)
         val router = MessageRouter(
             packetStore, MemoryConversations(), peers, signer, { name }, now, contacts,
         )
@@ -188,7 +235,10 @@ class ContactRouterTest {
             flow.value = values.values.toList()
         }
         override suspend fun deleteExpiredPending(now: Long) {
-            values.entries.removeAll { it.value.state.isPending && it.value.expiresAt <= now }
+            values.keys.toList().forEach { nodeId ->
+                val normalized = values[nodeId]?.withoutExpiredRequests(now)
+                if (normalized == null) values.remove(nodeId) else values[nodeId] = normalized
+            }
             flow.value = values.values.toList()
         }
     }
@@ -225,12 +275,12 @@ class ContactRouterTest {
         override suspend fun cleanup() = Unit
     }
 
-    private class MemoryPeers : PeerRepository {
+    private class MemoryPeers(private val clock: () -> Long) : PeerRepository {
         private val values = mutableMapOf<String, PeerEntity>()
         override suspend fun upsert(profile: NodeProfile) {
             values[profile.nodeId] = PeerEntity(
                 profile.nodeId, profile.displayName, profile.publicKey, profile.keyFingerprint,
-                profile.transportVersion, 0,
+                profile.transportVersion, clock(),
             )
         }
         override suspend fun find(nodeId: String) = values[nodeId]

@@ -2,6 +2,7 @@ package com.resqnet.app.mesh
 
 import com.resqnet.app.contacts.ContactDirectHandler
 import com.resqnet.app.contacts.ContactDirectPort
+import com.resqnet.app.contacts.DISCOVERY_FRESHNESS_WINDOW_MS
 import com.resqnet.app.data.*
 import com.resqnet.app.protocol.*
 import com.resqnet.app.security.IdentitySigner
@@ -36,8 +37,12 @@ class MessageRouter(
     private val clock: () -> Long = System::currentTimeMillis,
     private val contacts: ContactRepository? = null,
     private val receipts: ReceiptRepository? = null,
+    discoveryFreshnessWindowMs: Long = DISCOVERY_FRESHNESS_WINDOW_MS,
+    private val localProjections: LocalProjectionRepository? = null,
 ) : ContactDirectPort {
-    private val contactDirect = ContactDirectHandler(this, packets, conversations, peers, contacts, receipts)
+    private val contactDirect = ContactDirectHandler(
+        this, packets, conversations, peers, contacts, receipts, discoveryFreshnessWindowMs,
+    )
     override val localNodeId: String get() = signer.nodeId
     override fun localDisplayName() = displayName()
     override fun now() = clock()
@@ -261,6 +266,30 @@ class MessageRouter(
             "Packet ID collision"
         }
         return payload
+    }
+
+    override suspend fun createLocalDirectMessage(
+        targetNodeId: String,
+        conversationId: String,
+        text: String,
+    ): ConversationMessageEntity {
+        val now = clock()
+        val payload = PayloadV2(
+            UUID.randomUUID(), PacketKind.DIRECT_TEXT, Audience.DirectNode(targetNodeId), signer.nodeId,
+            displayName(), packets.nextSequence(), now, now + PROPAGATION_WINDOW_MS,
+            RelayPolicy.EPHEMERAL, DirectTextBody(conversationId, text),
+        )
+        val payloadBytes = ProtocolCodec.encodePayload(payload)
+        val packet = SignedPacket(payloadBytes, signer.sign(payloadBytes), signer.publicKey)
+        val envelope = RelayEnvelope(packet, DEFAULT_TTL, 0, listOf(signer.nodeId))
+        val raw = packetEntity(payload, envelope, projected = false, receivedAt = now)
+        val message = conversationEntity(payload, displayName(), outgoing = true, hopCount = 0)
+        val persisted = localProjections?.persist(raw, message) ?: run {
+            if (!packets.insert(raw)) false
+            else projectConversation(payload, displayName(), outgoing = true, hopCount = 0) is IngestResult.Projected
+        }
+        check(persisted) { "Could not atomically persist local direct message" }
+        return checkNotNull(conversations.find(payload.packetId.toString())) { "Projected message is missing" }
     }
 
     private suspend fun projectPublic(payload: PayloadV2, hopCount: Int): IngestResult {

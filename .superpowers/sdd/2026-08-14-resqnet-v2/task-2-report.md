@@ -82,3 +82,52 @@ No top-level screen, activity, manifest, resource, or navigation changes were ma
 
 - Room behavior is compile/KAPT verified here; on-device DAO/destructive-reset instrumentation remains explicitly scheduled for Task 5.
 - Top-level UI/navigation and notifications are intentionally deferred to Task 4.
+
+## Fix round 1/5: Review findings
+
+Original Task 2 commits:
+
+- `b087967` — `feat: add trusted contacts and direct messages`
+- `a8dc349` — `docs: report trusted contacts task`
+
+### RED/GREEN evidence
+
+1. Room schema version and destructive reset scope
+   - RED command: `.\gradlew.bat testDebugUnitTest --tests com.resqnet.app.data.DatabaseVersionPolicyTest`
+   - RED outcome: compilation failed because `RESQNET_DATABASE_VERSION` and `canDestructivelyResetFrom` did not exist.
+   - GREEN command: same focused command.
+   - GREEN outcome: `BUILD SUCCESSFUL` in 11s; schema version 3 resets only versions 1 and 2. The database builder uses `fallbackToDestructiveMigrationFrom(true, 1, 2)`; `ProfileStore` and Android Keystore remain outside Room, preserving profile/identity and the existing one-time upgrade-notice intent.
+
+2. Independent crossed-request expiries and decline convergence
+   - RED command: `.\gradlew.bat testDebugUnitTest --tests com.resqnet.app.contacts.ContactRouterTest.crossedRequestConfirmationUsesIncomingRequestsOwnExpiry --tests com.resqnet.app.contacts.ContactRouterTest.crossedDeclinePreservesTheOtherRequestSoAValidAcceptConvergesBothSides`
+   - RED outcome: compilation failed because independent outgoing/incoming expiry fields did not exist.
+   - GREEN command: `.\gradlew.bat testDebugUnitTest --tests com.resqnet.app.contacts.ContactRouterTest`
+   - GREEN outcome: `BUILD SUCCESSFUL` in 10s. Each request ID retains its own expiry; accept/decline validate the referenced side. Declining a crossed incoming request preserves the local outgoing request, and a later valid accept converges both devices to trusted.
+
+3. Fresh discovery requirement
+   - RED command: `.\gradlew.bat testDebugUnitTest --tests com.resqnet.app.contacts.ContactRouterTest.contactRequestRequiresPeerSeenInsideDiscoveryFreshnessWindow`
+   - RED outcome: compilation failed because the named discovery window did not exist; the old command path accepted any historical peer row.
+   - GREEN command: same focused command.
+   - GREEN outcome: `BUILD SUCCESSFUL` in 6s. `DISCOVERY_FRESHNESS_WINDOW_MS` is an injectable two-minute window; stale peer rows are rejected, while a fresh HELLO permits the request.
+
+4. Atomic/retryable local direct persistence
+   - RED command: `.\gradlew.bat testDebugUnitTest --tests com.resqnet.app.contacts.DirectMessageRouterTest.cancelledLocalDirectPersistenceExposesNoRelayablePacketWithoutSenderProjection`
+   - RED outcome: compilation failed because `LocalProjectionRepository` and the router injection seam did not exist.
+   - GREEN command: same focused command.
+   - GREEN outcome: `BUILD SUCCESSFUL` in 7s. Room now persists the raw direct packet, outgoing visible row, and projected state in one transaction with exact-row reconciliation for retry. Cancellation exposes neither a relayable packet nor a sender-less projection; successful retry restores Queued state and receipt applicability.
+
+### Regression and final verification
+
+- Combined focused command: `.\gradlew.bat testDebugUnitTest --tests com.resqnet.app.contacts.ContactRouterTest --tests com.resqnet.app.contacts.DirectMessageRouterTest --tests com.resqnet.app.mesh.MessageRouterTest --tests com.resqnet.app.data.DatabaseVersionPolicyTest`
+- First combined outcome: two long-duration fixtures failed because they intentionally advanced beyond the new discovery window without a fresh HELLO. Fixtures were corrected to rediscover before originating the later request; expiry assertions were unchanged.
+- Second combined outcome: `BUILD SUCCESSFUL` in 2s; 25 focused tests passed.
+- Final command: `.\gradlew.bat testDebugUnitTest assembleDebug`
+- Final outcome: `BUILD SUCCESSFUL` in 14s; 36 tests passed, 0 failed, 0 errors across 7 suites, and the debug APK assembled.
+- `git diff --check`: no whitespace errors; only the repository's LF-to-CRLF notices.
+
+### Fix-round self-review and concerns
+
+- `ContactEntity` now stores independent nullable outgoing/incoming IDs and expiries. Normalization clears only expired sides and derives pending state from the surviving request.
+- `RoomLocalProjectionRepository` owns the only production direct local-write path and uses a Room transaction; the router fallback remains solely for isolated tests that do not inject Room.
+- Destructive reset is explicitly restricted to schemas 1 and 2 rather than accepting every unknown historical/future version.
+- On-device migration/reset execution remains scheduled for Task 5 instrumentation; this round compile/KAPT verifies the v3 schema and builder API.

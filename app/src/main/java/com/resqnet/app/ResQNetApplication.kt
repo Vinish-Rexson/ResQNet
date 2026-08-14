@@ -15,6 +15,7 @@ class ResQNetApplication : Application() {
     lateinit var peers: PeerRepository; private set
     lateinit var contacts: ContactRepository; private set
     lateinit var receipts: ReceiptRepository; private set
+    lateinit var localProjections: LocalProjectionRepository; private set
     lateinit var router: MessageRouter; private set
     lateinit var contactService: ContactService; private set
     lateinit var directMessages: DirectMessageService; private set
@@ -29,10 +30,11 @@ class ResQNetApplication : Application() {
         peers = RoomPeerRepository(database.meshDao())
         contacts = RoomContactRepository(database.meshDao())
         receipts = RoomReceiptRepository(database.meshDao())
+        localProjections = RoomLocalProjectionRepository(database, database.meshDao())
         signer = AndroidIdentitySigner()
         router = MessageRouter(
             packets, messages, peers, signer, { profile.displayName.ifBlank { "Anonymous" } },
-            contacts = contacts, receipts = receipts,
+            contacts = contacts, receipts = receipts, localProjections = localProjections,
         )
         contactService = ContactService(contacts, router)
         directMessages = DirectMessageService(messages, router)

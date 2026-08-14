@@ -179,6 +179,28 @@ class DirectMessageRouterTest {
         assertEquals(1, bob.packetStore.values.values.count { it.kind == PacketKind.DELIVERY_RECEIPT })
     }
 
+    @Test fun cancelledLocalDirectPersistenceExposesNoRelayablePacketWithoutSenderProjection() = runTest {
+        val now = 60_000L
+        val alice = TestNode("Alice", now)
+        val bob = TestNode("Bob", now)
+        alice.trust(bob)
+        alice.localProjections.cancelNextPersist = true
+
+        val interrupted = runCatching {
+            alice.router.createDirectMessage(bob.signer.nodeId, "Atomic local write")
+        }.exceptionOrNull()
+        assertTrue(interrupted is CancellationException)
+        assertEquals(0, alice.packetStore.values.size)
+        assertEquals(0, alice.conversations.values.size)
+        assertEquals(emptyList<String>(), alice.router.inventory())
+
+        val retry = alice.router.createDirectMessage(bob.signer.nodeId, "Atomic local write")
+        assertEquals(DeliveryState.QUEUED, retry.deliveryState)
+        assertEquals(1, alice.packetStore.values.size)
+        assertEquals(1, alice.conversations.values.size)
+        assertEquals(listOf(retry.messageId), alice.router.inventory())
+    }
+
     private fun receiptPayload(origin: TestNode, targetNodeId: String, messageId: String, now: Long) = PayloadV2(
         UUID.randomUUID(), PacketKind.DELIVERY_RECEIPT, Audience.DirectNode(targetNodeId),
         origin.signer.nodeId, origin.name, 1, now, now + PROPAGATION_WINDOW_MS,
@@ -196,14 +218,16 @@ class DirectMessageRouterTest {
         val conversations = MemoryConversations()
         val contacts = MemoryContacts()
         val receipts = MemoryReceipts()
+        val localProjections = MemoryLocalProjections(packetStore, conversations)
         private val peers = MemoryPeers()
         val router = MessageRouter(
             packetStore, conversations, peers, signer, { name }, { now }, contacts, receipts,
+            localProjections = localProjections,
         )
         val directMessages = DirectMessageService(conversations, router)
         suspend fun trust(other: TestNode) = contacts.upsert(ContactEntity(
             other.signer.nodeId, other.name, other.signer.publicKey, other.signer.fingerprint,
-            ContactState.TRUSTED, null, null, Long.MAX_VALUE, now,
+            ContactState.TRUSTED, null, null, null, null, now,
         ))
         fun envelope(packetId: String) = ProtocolCodec.decodeEnvelope(packetStore.values.getValue(packetId).rawEnvelope)
         fun only(kind: PacketKind) = packetStore.values.values.single { it.kind == kind }
@@ -228,6 +252,25 @@ class DirectMessageRouterTest {
                 throw CancellationException("receipt claim interrupted")
             }
             return inserted
+        }
+    }
+
+    private class MemoryLocalProjections(
+        private val packets: MemoryPackets,
+        private val conversations: MemoryConversations,
+    ) : LocalProjectionRepository {
+        var cancelNextPersist = false
+        override suspend fun persist(
+            packet: PacketEntity,
+            message: ConversationMessageEntity,
+        ): Boolean {
+            if (cancelNextPersist) {
+                cancelNextPersist = false
+                throw CancellationException("local projection interrupted")
+            }
+            if (!packets.insert(packet)) return false
+            if (!conversations.insert(message)) return false
+            return packets.markProjected(packet.packetId)
         }
     }
 
