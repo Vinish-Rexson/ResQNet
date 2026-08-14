@@ -77,6 +77,25 @@ enum class RelayPolicy(val wireId: Int) {
     }
 }
 
+val PacketKind.requiredRelayPolicy: RelayPolicy
+    get() = when (this) {
+        PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT -> RelayPolicy.DURABLE_UNTIL_SUPERSEDED
+        PacketKind.CIRCLE_INVITE_ACCEPT,
+        PacketKind.CIRCLE_LEAVE_REQUEST,
+        -> RelayPolicy.DURABLE_UNTIL_RESOLVED
+        PacketKind.PUBLIC_TEXT,
+        PacketKind.CONTACT_REQUEST,
+        PacketKind.CONTACT_ACCEPT,
+        PacketKind.CONTACT_DECLINE,
+        PacketKind.DIRECT_TEXT,
+        PacketKind.DELIVERY_RECEIPT,
+        PacketKind.CIRCLE_INVITE,
+        PacketKind.CIRCLE_INVITE_DECLINE,
+        PacketKind.CIRCLE_TEXT,
+        PacketKind.CIRCLE_STATUS,
+        -> RelayPolicy.EPHEMERAL
+    }
+
 enum class SafetyStatus(val wireId: Int) {
     UNKNOWN(1), SAFE(2), NEED_HELP(3);
 

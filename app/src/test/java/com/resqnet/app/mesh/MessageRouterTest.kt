@@ -5,6 +5,7 @@ import com.resqnet.app.protocol.*
 import com.resqnet.app.security.IdentitySigner
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -141,27 +142,126 @@ class MessageRouterTest {
         assertEquals(0, receiverPackets.values.size)
     }
 
+    @Test fun samePacketIdWithDifferentSignedBytesIsRejectedWithoutAck() = runTest {
+        val now = 1_000L
+        val senderSigner = JvmSigner()
+        val packetId = UUID.randomUUID()
+        val packets = MemoryPackets()
+        val conversations = MemoryConversations()
+        val receiver = MessageRouter(packets, conversations, MemoryPeers(), JvmSigner(), { "Relay" }, { now })
+        val original = signedEnvelope(
+            PayloadV2(
+                packetId, PacketKind.PUBLIC_TEXT, Audience.PublicChannel, senderSigner.nodeId, "Alice", 1,
+                now, now + PROPAGATION_WINDOW_MS, RelayPolicy.EPHEMERAL, PublicTextBody("Original"),
+            ),
+            senderSigner,
+        )
+        assertTrue(receiver.ingest(original, "sender") is IngestResult.Projected)
+        val storedBefore = packets.values.getValue(packetId.toString()).rawEnvelope.clone()
+        val collision = signedEnvelope(
+            PayloadV2(
+                packetId, PacketKind.PUBLIC_TEXT, Audience.PublicChannel, senderSigner.nodeId, "Alice", 2,
+                now, now + PROPAGATION_WINDOW_MS, RelayPolicy.EPHEMERAL, PublicTextBody("Collision"),
+            ),
+            senderSigner,
+        )
+
+        val result = receiver.ingest(collision, "sender")
+
+        assertTrue(result is IngestResult.Rejected)
+        assertTrue(!result.hopAckEligible)
+        assertArrayEquals(storedBefore, packets.values.getValue(packetId.toString()).rawEnvelope)
+        assertEquals(listOf("Original"), conversations.values.values.map { it.text })
+    }
+
+    @Test fun failedVisibleInsertRemainsStoredOnlyAndRetriesOnRedelivery() = runTest {
+        val now = 1_000L
+        val senderSigner = JvmSigner()
+        val packets = MemoryPackets()
+        val conversations = MemoryConversations().apply { failNextInsert = true }
+        val receiver = MessageRouter(packets, conversations, MemoryPeers(), JvmSigner(), { "Relay" }, { now })
+        val payload = PayloadV2(
+            UUID.randomUUID(), PacketKind.PUBLIC_TEXT, Audience.PublicChannel,
+            senderSigner.nodeId, "Alice", 1, now, now + PROPAGATION_WINDOW_MS,
+            RelayPolicy.EPHEMERAL, PublicTextBody("Retry projection"),
+        )
+        val envelope = signedEnvelope(payload, senderSigner)
+
+        val first = receiver.ingest(envelope, "sender")
+        assertTrue(first is IngestResult.StoredOnly)
+        assertEquals(ProjectionState.STORED_ONLY, packets.values.getValue(payload.packetId.toString()).projectionState)
+        assertEquals(0, conversations.values.size)
+
+        val retry = receiver.ingest(envelope, "sender")
+        assertTrue(retry is IngestResult.Projected)
+        assertEquals(ProjectionState.PROJECTED, packets.values.getValue(payload.packetId.toString()).projectionState)
+        assertEquals(listOf("Retry projection"), conversations.values.values.map { it.text })
+    }
+
+    @Test fun cancellationAfterVisibleInsertRetriesDespiteMutableProjectionMetadata() = runTest {
+        val now = 1_000L
+        val senderSigner = JvmSigner()
+        val packets = MemoryPackets().apply { cancelNextProjectionPromotion = true }
+        val conversations = MemoryConversations()
+        val receiver = MessageRouter(packets, conversations, MemoryPeers(), JvmSigner(), { "Relay" }, { now })
+        val payload = PayloadV2(
+            UUID.randomUUID(), PacketKind.PUBLIC_TEXT, Audience.PublicChannel,
+            senderSigner.nodeId, "Alice", 1, now, now + PROPAGATION_WINDOW_MS,
+            RelayPolicy.EPHEMERAL, PublicTextBody("Crash window"),
+        )
+        val envelope = signedEnvelope(payload, senderSigner)
+
+        val failure = runCatching { receiver.ingest(envelope, "sender") }.exceptionOrNull()
+        assertTrue(failure is CancellationException)
+        assertEquals(ProjectionState.STORED_ONLY, packets.values.getValue(payload.packetId.toString()).projectionState)
+        val visible = conversations.values.getValue(payload.packetId.toString())
+        conversations.values[payload.packetId.toString()] = visible.copy(originName = "Updated peer", relayed = true)
+
+        val retry = receiver.ingest(envelope, "sender")
+        assertTrue(retry is IngestResult.Projected)
+        assertEquals(ProjectionState.PROJECTED, packets.values.getValue(payload.packetId.toString()).projectionState)
+        assertEquals(1, conversations.values.size)
+    }
+
+    private fun signedEnvelope(payload: PayloadV2, signer: JvmSigner): RelayEnvelope {
+        val bytes = ProtocolCodec.encodePayload(payload)
+        return RelayEnvelope(SignedPacket(bytes, signer.sign(bytes), signer.publicKey))
+    }
+
     private class MemoryPackets : PacketRepository {
         val values = linkedMapOf<String, PacketEntity>()
+        var cancelNextProjectionPromotion = false
         private var sequence = 0L
         override suspend fun insert(packet: PacketEntity): Boolean = values.putIfAbsent(packet.packetId, packet) == null
         override suspend fun find(packetId: String) = values[packetId]
         override suspend fun inventoryIds() = values.values.filter { it.relayEligible }.map { it.packetId }
         override suspend fun findAll(packetIds: List<String>) = packetIds.mapNotNull(values::get)
         override suspend fun nextSequence() = ++sequence
+        override suspend fun markProjected(packetId: String): Boolean {
+            if (cancelNextProjectionPromotion) {
+                cancelNextProjectionPromotion = false
+                throw CancellationException("projection promotion cancelled")
+            }
+            val packet = values[packetId] ?: return false
+            values[packetId] = packet.copy(projectionState = ProjectionState.PROJECTED)
+            return true
+        }
         override suspend fun markRelayed(packetId: String, peerId: String) = Unit
         override suspend fun cleanup() = Unit
     }
 
     private class MemoryConversations : ConversationRepository {
         val values = linkedMapOf<String, ConversationMessageEntity>()
+        var failNextInsert = false
         private val flow = MutableStateFlow<List<ConversationMessageEntity>>(emptyList())
         override fun observeMessages(): Flow<List<ConversationMessageEntity>> = flow
         override suspend fun insert(message: ConversationMessageEntity): Boolean {
+            if (failNextInsert) { failNextInsert = false; return false }
             if (values.putIfAbsent(message.messageId, message) != null) return false
             flow.value = values.values.toList()
             return true
         }
+        override suspend fun find(messageId: String) = values[messageId]
         override suspend fun markRelayed(messageId: String) = Unit
         override suspend fun cleanup() = Unit
     }

@@ -10,6 +10,7 @@ interface PacketRepository {
     suspend fun inventoryIds(): List<String>
     suspend fun findAll(packetIds: List<String>): List<PacketEntity>
     suspend fun nextSequence(): Long
+    suspend fun markProjected(packetId: String): Boolean
     suspend fun markRelayed(packetId: String, peerId: String)
     suspend fun cleanup()
 }
@@ -17,6 +18,7 @@ interface PacketRepository {
 interface ConversationRepository {
     fun observeMessages(): Flow<List<ConversationMessageEntity>>
     suspend fun insert(message: ConversationMessageEntity): Boolean
+    suspend fun find(messageId: String): ConversationMessageEntity?
     suspend fun markRelayed(messageId: String)
     suspend fun cleanup()
 }
@@ -35,6 +37,7 @@ class RoomPacketRepository(
     override suspend fun inventoryIds() = dao.inventoryPacketIds(clock())
     override suspend fun findAll(packetIds: List<String>) = if (packetIds.isEmpty()) emptyList() else dao.packets(packetIds)
     override suspend fun nextSequence() = dao.nextSequence()
+    override suspend fun markProjected(packetId: String) = dao.markPacketProjected(packetId) > 0
     override suspend fun markRelayed(packetId: String, peerId: String) {
         val now = clock()
         dao.upsertDelivery(PeerDeliveryEntity(packetId, peerId, true, 0, now, now))
@@ -49,6 +52,7 @@ class RoomConversationRepository(private val dao: MeshDao) : ConversationReposit
         if (inserted) dao.trimConversationMessages(MAX_RETAINED_MESSAGES)
         return inserted
     }
+    override suspend fun find(messageId: String) = dao.conversationMessage(messageId)
     override suspend fun markRelayed(messageId: String) = dao.markConversationRelayed(messageId)
     override suspend fun cleanup() = dao.trimConversationMessages(MAX_RETAINED_MESSAGES)
 }

@@ -135,6 +135,40 @@ class ProtocolCodecTest {
         assertThrows(IllegalArgumentException::class.java) { ProtocolCodec.encodePayload(invalid) }
     }
 
+    @Test fun everyPacketKindAcceptsOnlyItsDefinedRelayPolicy() {
+        PacketKind.entries.forEach { kind ->
+            ProtocolCodec.encodePayload(payloadForKind(kind, kind.requiredRelayPolicy))
+            RelayPolicy.entries.filterNot { it == kind.requiredRelayPolicy }.forEach { wrongPolicy ->
+                assertThrows("$kind accepted $wrongPolicy", IllegalArgumentException::class.java) {
+                    ProtocolCodec.encodePayload(payloadForKind(kind, wrongPolicy))
+                }
+            }
+        }
+    }
+
+    private fun payloadForKind(kind: PacketKind, relayPolicy: RelayPolicy): PayloadV2 {
+        val (audience, body) = when (kind) {
+            PacketKind.PUBLIC_TEXT -> Audience.PublicChannel to PublicTextBody("Public")
+            PacketKind.CONTACT_REQUEST -> Audience.DirectNode("node-b") to ContactRequestBody("request", "Alice")
+            PacketKind.CONTACT_ACCEPT -> Audience.DirectNode("node-b") to ContactAcceptBody("request")
+            PacketKind.CONTACT_DECLINE -> Audience.DirectNode("node-b") to ContactDeclineBody("request")
+            PacketKind.DIRECT_TEXT -> Audience.DirectNode("node-b") to DirectTextBody("conversation", "Direct")
+            PacketKind.DELIVERY_RECEIPT -> Audience.DirectNode("node-b") to DeliveryReceiptBody("message")
+            PacketKind.CIRCLE_INVITE -> Audience.DirectNode("node-b") to CircleInviteBody(
+                "invite", "circle", "Family", "node-a", 1, 200,
+            )
+            PacketKind.CIRCLE_INVITE_ACCEPT -> Audience.DirectNode("node-b") to CircleInviteAcceptBody("invite", "circle")
+            PacketKind.CIRCLE_INVITE_DECLINE -> Audience.DirectNode("node-b") to CircleInviteDeclineBody("invite", "circle")
+            PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT -> Audience.Circle("circle") to CircleMembershipSnapshotBody(
+                "circle", 1, "Family", "node-a", listOf("node-a"),
+            )
+            PacketKind.CIRCLE_TEXT -> Audience.Circle("circle") to CircleTextBody("circle", 1, "Circle")
+            PacketKind.CIRCLE_STATUS -> Audience.Circle("circle") to CircleStatusBody("circle", 1, SafetyStatus.SAFE, null)
+            PacketKind.CIRCLE_LEAVE_REQUEST -> Audience.DirectNode("node-b") to CircleLeaveRequestBody("circle")
+        }
+        return payload(kind, audience, body).copy(relayPolicy = relayPolicy)
+    }
+
     private fun payload(kind: PacketKind, audience: Audience, body: PacketBody) = PayloadV2(
         packetId = UUID.fromString("00000000-0000-0000-0000-000000000001"),
         kind = kind,

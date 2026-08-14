@@ -23,6 +23,7 @@ object ProtocolCodec {
         require(payload.kind == payload.body.kind) { "Packet kind does not match body" }
         require(validAudience(payload.kind, payload.audience)) { "Packet kind does not match audience" }
         require(validAudienceBody(payload.audience, payload.body)) { "Audience ID does not match body" }
+        require(payload.relayPolicy == payload.kind.requiredRelayPolicy) { "Packet kind does not match relay policy" }
         out.writeInt(PAYLOAD_MAGIC)
         out.writeInt(payload.payloadVersion)
         out.writeLong(payload.packetId.mostSignificantBits)
@@ -55,6 +56,7 @@ object ProtocolCodec {
         require(source.available() == 0) { "Trailing payload bytes" }
         require(validAudience(kind, audience)) { "Packet kind does not match audience" }
         require(validAudienceBody(audience, body)) { "Audience ID does not match body" }
+        require(relayPolicy == kind.requiredRelayPolicy) { "Packet kind does not match relay policy" }
         PayloadV2(id, kind, audience, nodeId, name, sequence, createdAt, expiresAt, relayPolicy, body, version)
     }
 

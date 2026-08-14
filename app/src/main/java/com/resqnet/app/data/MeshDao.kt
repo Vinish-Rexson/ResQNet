@@ -15,6 +15,9 @@ interface MeshDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertConversationMessage(message: ConversationMessageEntity): Long
 
+    @Query("SELECT * FROM conversation_messages WHERE messageId = :id")
+    suspend fun conversationMessage(id: String): ConversationMessageEntity?
+
     @Query("UPDATE conversation_messages SET relayed = 1 WHERE messageId = :id")
     suspend fun markConversationRelayed(id: String)
 
@@ -23,6 +26,9 @@ interface MeshDao {
 
     @Query("SELECT * FROM packets WHERE packetId = :id")
     suspend fun packet(id: String): PacketEntity?
+
+    @Query("UPDATE packets SET projectionState = 'PROJECTED' WHERE packetId = :id AND projectionState = 'STORED_ONLY'")
+    suspend fun markPacketProjected(id: String): Int
 
     @Query("SELECT * FROM packets WHERE packetId IN (:ids)")
     suspend fun packets(ids: List<String>): List<PacketEntity>

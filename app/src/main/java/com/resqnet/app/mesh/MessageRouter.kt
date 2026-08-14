@@ -53,10 +53,11 @@ class MessageRouter(
         val payloadBytes = ProtocolCodec.encodePayload(payload)
         val packet = SignedPacket(payloadBytes, signer.sign(payloadBytes), signer.publicKey)
         val envelope = RelayEnvelope(packet, DEFAULT_TTL, 0, listOf(signer.nodeId))
-        val packetEntity = packetEntity(payload, envelope, projected = true, receivedAt = now)
+        val packetEntity = packetEntity(payload, envelope, projected = false, receivedAt = now)
         check(packets.insert(packetEntity)) { "Packet ID collision" }
         val message = conversationEntity(payload, displayName(), outgoing = true, hopCount = 0)
         check(conversations.insert(message)) { "Message ID collision" }
+        check(packets.markProjected(payload.packetId.toString())) { "Could not mark message projected" }
         return message
     }
 
@@ -83,7 +84,9 @@ class MessageRouter(
         }
 
         val packetId = payload.packetId.toString()
-        if (packets.find(packetId) != null) return IngestResult.Duplicate(packetId)
+        packets.find(packetId)?.let { existing ->
+            return handleExisting(existing, envelope.packet, payload)
+        }
 
         val forwarded = envelope.copy(
             ttlRemaining = envelope.ttlRemaining - 1,
@@ -91,16 +94,14 @@ class MessageRouter(
             hopTrace = (envelope.hopTrace + signer.nodeId).distinct().take(MAX_HOP_TRACE),
         )
         val shouldProject = payload.kind == PacketKind.PUBLIC_TEXT && payload.audience == Audience.PublicChannel
-        val raw = packetEntity(payload, forwarded, projected = shouldProject, receivedAt = clock())
-        if (!packets.insert(raw)) return IngestResult.Duplicate(packetId)
+        val raw = packetEntity(payload, forwarded, projected = false, receivedAt = clock())
+        if (!packets.insert(raw)) {
+            val existing = packets.find(packetId) ?: return IngestResult.Rejected("Packet persistence race")
+            return handleExisting(existing, envelope.packet, payload)
+        }
 
         if (!shouldProject) return IngestResult.StoredOnly(packetId)
-
-        val peer = peers.find(payload.originNodeId)
-        val originName = peer?.displayName
-            ?: payload.originDisplayName.take(32).ifBlank { "Node ${payload.originNodeId.take(8)}" }
-        conversations.insert(conversationEntity(payload, originName, outgoing = false, hopCount = forwarded.hopCount))
-        return IngestResult.Projected(packetId)
+        return projectPublic(payload, forwarded.hopCount)
     }
 
     suspend fun onHello(profile: NodeProfile): Boolean {
@@ -169,6 +170,53 @@ class MessageRouter(
         is CircleMembershipSnapshotBody -> "circle-snapshot:${body.circleId}"
         else -> null
     }
+
+    private fun sameSignedPacket(existing: PacketEntity, incoming: SignedPacket): Boolean {
+        val stored = runCatching { ProtocolCodec.decodeEnvelope(existing.rawEnvelope).packet }.getOrNull() ?: return false
+        return stored.payloadBytes.contentEquals(incoming.payloadBytes) &&
+            stored.signature.contentEquals(incoming.signature) &&
+            stored.originPublicKey.contentEquals(incoming.originPublicKey)
+    }
+
+    private suspend fun handleExisting(
+        existing: PacketEntity,
+        incoming: SignedPacket,
+        payload: PayloadV2,
+    ): IngestResult {
+        if (!sameSignedPacket(existing, incoming)) return IngestResult.Rejected("Packet ID collision")
+        val shouldProject = payload.kind == PacketKind.PUBLIC_TEXT && payload.audience == Audience.PublicChannel
+        return if (shouldProject && existing.projectionState == ProjectionState.STORED_ONLY) {
+            projectPublic(payload, existing.hopCount)
+        } else {
+            IngestResult.Duplicate(existing.packetId)
+        }
+    }
+
+    private suspend fun projectPublic(payload: PayloadV2, hopCount: Int): IngestResult {
+        val packetId = payload.packetId.toString()
+        val peer = peers.find(payload.originNodeId)
+        val originName = peer?.displayName
+            ?: payload.originDisplayName.take(32).ifBlank { "Node ${payload.originNodeId.take(8)}" }
+        val message = conversationEntity(payload, originName, outgoing = false, hopCount = hopCount)
+        val inserted = conversations.insert(message)
+        if (!inserted) {
+            val existing = conversations.find(packetId)
+            if (existing == null || !sameProjection(existing, message)) return IngestResult.StoredOnly(packetId)
+        }
+        if (!packets.markProjected(packetId)) {
+            val state = packets.find(packetId)?.projectionState
+            if (state != ProjectionState.PROJECTED) return IngestResult.StoredOnly(packetId)
+        }
+        return IngestResult.Projected(packetId)
+    }
+
+    private fun sameProjection(
+        existing: ConversationMessageEntity,
+        expected: ConversationMessageEntity,
+    ): Boolean = existing.copy(
+        originName = expected.originName,
+        relayed = expected.relayed,
+    ) == expected
 
     private fun fingerprintNodeId(publicKey: ByteArray): String = MessageDigest.getInstance("SHA-256")
         .digest(publicKey).joinToString("") { "%02x".format(it) }.take(32)
