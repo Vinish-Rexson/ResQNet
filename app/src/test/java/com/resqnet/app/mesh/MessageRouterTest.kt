@@ -223,6 +223,28 @@ class MessageRouterTest {
         assertEquals(1, conversations.values.size)
     }
 
+    @Test fun cancelledLocalProjectionRecoversAsOutgoingWhenPacketReturns() = runTest {
+        val now = 1_000L
+        val localSigner = JvmSigner()
+        val packets = MemoryPackets().apply { cancelNextProjectionPromotion = true }
+        val conversations = MemoryConversations()
+        val router = MessageRouter(packets, conversations, MemoryPeers(), localSigner, { "Alice" }, { now })
+
+        val failure = runCatching { router.createMessage("Local crash window") }.exceptionOrNull()
+        assertTrue(failure is CancellationException)
+        val raw = packets.values.values.single()
+        assertEquals(ProjectionState.STORED_ONLY, raw.projectionState)
+        assertTrue(conversations.values.values.single().outgoing)
+
+        val returned = ProtocolCodec.decodeEnvelope(raw.rawEnvelope)
+        val recovery = router.ingest(returned, "relay")
+
+        assertTrue(recovery is IngestResult.Projected)
+        assertEquals(ProjectionState.PROJECTED, packets.values.getValue(raw.packetId).projectionState)
+        assertEquals(1, conversations.values.size)
+        assertTrue(conversations.values.values.single().outgoing)
+    }
+
     private fun signedEnvelope(payload: PayloadV2, signer: JvmSigner): RelayEnvelope {
         val bytes = ProtocolCodec.encodePayload(payload)
         return RelayEnvelope(SignedPacket(bytes, signer.sign(bytes), signer.publicKey))

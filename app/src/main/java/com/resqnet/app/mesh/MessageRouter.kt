@@ -55,10 +55,8 @@ class MessageRouter(
         val envelope = RelayEnvelope(packet, DEFAULT_TTL, 0, listOf(signer.nodeId))
         val packetEntity = packetEntity(payload, envelope, projected = false, receivedAt = now)
         check(packets.insert(packetEntity)) { "Packet ID collision" }
-        val message = conversationEntity(payload, displayName(), outgoing = true, hopCount = 0)
-        check(conversations.insert(message)) { "Message ID collision" }
-        check(packets.markProjected(payload.packetId.toString())) { "Could not mark message projected" }
-        return message
+        check(projectPublic(payload, hopCount = 0) is IngestResult.Projected) { "Could not project local message" }
+        return checkNotNull(conversations.find(payload.packetId.toString())) { "Projected message is missing" }
     }
 
     suspend fun ingest(envelope: RelayEnvelope, fromPeerId: String): IngestResult {
@@ -194,10 +192,14 @@ class MessageRouter(
 
     private suspend fun projectPublic(payload: PayloadV2, hopCount: Int): IngestResult {
         val packetId = payload.packetId.toString()
-        val peer = peers.find(payload.originNodeId)
-        val originName = peer?.displayName
-            ?: payload.originDisplayName.take(32).ifBlank { "Node ${payload.originNodeId.take(8)}" }
-        val message = conversationEntity(payload, originName, outgoing = false, hopCount = hopCount)
+        val outgoing = payload.originNodeId == signer.nodeId
+        val originName = if (outgoing) {
+            displayName()
+        } else {
+            peers.find(payload.originNodeId)?.displayName
+                ?: payload.originDisplayName.take(32).ifBlank { "Node ${payload.originNodeId.take(8)}" }
+        }
+        val message = conversationEntity(payload, originName, outgoing = outgoing, hopCount = hopCount)
         val inserted = conversations.insert(message)
         if (!inserted) {
             val existing = conversations.find(packetId)
