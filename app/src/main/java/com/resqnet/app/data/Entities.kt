@@ -2,12 +2,25 @@ package com.resqnet.app.data
 
 import androidx.room.Entity
 import androidx.room.Index
+import androidx.room.Ignore
 import androidx.room.PrimaryKey
 import com.resqnet.app.protocol.AudienceType
 import com.resqnet.app.protocol.PacketKind
 import com.resqnet.app.protocol.RelayPolicy
 
-enum class ProjectionState { STORED_ONLY, PROJECTED }
+enum class ProjectionState { STORED_ONLY, PROJECTED, SUPPRESSED }
+
+enum class ContactState {
+    PENDING_OUTGOING,
+    PENDING_INCOMING,
+    TRUSTED,
+    BLOCKED;
+
+    val isPending: Boolean
+        get() = this == PENDING_OUTGOING || this == PENDING_INCOMING
+}
+
+enum class DeliveryState { QUEUED, RELAYED, DELIVERED }
 
 @Entity(
     tableName = "packets",
@@ -52,8 +65,17 @@ data class ConversationMessageEntity(
     val text: String,
     val outgoing: Boolean,
     val relayed: Boolean = false,
+    val delivered: Boolean = false,
     val hopCount: Int,
-)
+) {
+    @get:Ignore
+    val deliveryState: DeliveryState
+        get() = when {
+            delivered -> DeliveryState.DELIVERED
+            relayed -> DeliveryState.RELAYED
+            else -> DeliveryState.QUEUED
+        }
+}
 
 @Entity(tableName = "peers")
 data class PeerEntity(
@@ -63,6 +85,19 @@ data class PeerEntity(
     val fingerprint: String,
     val protocolVersion: Int,
     val lastSeenAt: Long,
+)
+
+@Entity(tableName = "contacts", indices = [Index("state"), Index("expiresAt")])
+data class ContactEntity(
+    @PrimaryKey val nodeId: String,
+    val displayName: String,
+    val publicKey: ByteArray,
+    val fingerprint: String,
+    val state: ContactState,
+    val outgoingRequestId: String?,
+    val incomingRequestId: String?,
+    val expiresAt: Long,
+    val updatedAt: Long,
 )
 
 @Entity(tableName = "deliveries", primaryKeys = ["messageId", "peerId"], indices = [Index("peerId")])

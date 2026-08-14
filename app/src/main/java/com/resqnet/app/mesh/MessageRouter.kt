@@ -1,11 +1,8 @@
 package com.resqnet.app.mesh
 
-import com.resqnet.app.data.ConversationMessageEntity
-import com.resqnet.app.data.ConversationRepository
-import com.resqnet.app.data.PacketEntity
-import com.resqnet.app.data.PacketRepository
-import com.resqnet.app.data.PeerRepository
-import com.resqnet.app.data.ProjectionState
+import com.resqnet.app.contacts.ContactDirectHandler
+import com.resqnet.app.contacts.ContactDirectPort
+import com.resqnet.app.data.*
 import com.resqnet.app.protocol.*
 import com.resqnet.app.security.IdentitySigner
 import java.security.MessageDigest
@@ -37,7 +34,14 @@ class MessageRouter(
     private val signer: IdentitySigner,
     private val displayName: () -> String,
     private val clock: () -> Long = System::currentTimeMillis,
-) {
+    private val contacts: ContactRepository? = null,
+    private val receipts: ReceiptRepository? = null,
+) : ContactDirectPort {
+    private val contactDirect = ContactDirectHandler(this, packets, conversations, peers, contacts, receipts)
+    override val localNodeId: String get() = signer.nodeId
+    override fun localDisplayName() = displayName()
+    override fun now() = clock()
+
     fun localProfile() = NodeProfile(signer.nodeId, displayName(), signer.publicKey, signer.fingerprint)
 
     suspend fun createMessage(text: String): ConversationMessageEntity {
@@ -58,6 +62,15 @@ class MessageRouter(
         check(projectPublic(payload, hopCount = 0) is IngestResult.Projected) { "Could not project local message" }
         return checkNotNull(conversations.find(payload.packetId.toString())) { "Projected message is missing" }
     }
+
+    suspend fun createDirectMessage(nodeId: String, text: String) = contactDirect.createDirectMessage(nodeId, text)
+    suspend fun requestContact(nodeId: String, confirmedFingerprint: String) =
+        contactDirect.requestContact(nodeId, confirmedFingerprint)
+    suspend fun acceptContact(nodeId: String) = contactDirect.acceptContact(nodeId)
+    suspend fun declineContact(nodeId: String) = contactDirect.declineContact(nodeId)
+    suspend fun removeContact(nodeId: String) = contactDirect.removeContact(nodeId)
+    suspend fun blockContact(nodeId: String) = contactDirect.blockContact(nodeId)
+    suspend fun unblockContact(nodeId: String) = contactDirect.unblockContact(nodeId)
 
     suspend fun ingest(envelope: RelayEnvelope, fromPeerId: String): IngestResult {
         envelope.boundsViolation(requireRelayable = true)?.let { return IngestResult.Rejected(it) }
@@ -91,15 +104,13 @@ class MessageRouter(
             hopCount = envelope.hopCount + 1,
             hopTrace = (envelope.hopTrace + signer.nodeId).distinct().take(MAX_HOP_TRACE),
         )
-        val shouldProject = payload.kind == PacketKind.PUBLIC_TEXT && payload.audience == Audience.PublicChannel
         val raw = packetEntity(payload, forwarded, projected = false, receivedAt = clock())
         if (!packets.insert(raw)) {
             val existing = packets.find(packetId) ?: return IngestResult.Rejected("Packet persistence race")
             return handleExisting(existing, envelope.packet, payload)
         }
 
-        if (!shouldProject) return IngestResult.StoredOnly(packetId)
-        return projectPublic(payload, forwarded.hopCount)
+        return projectPayload(payload, envelope.packet.originPublicKey, forwarded.hopCount)
     }
 
     suspend fun onHello(profile: NodeProfile): Boolean {
@@ -126,6 +137,7 @@ class MessageRouter(
     suspend fun cleanup() {
         packets.cleanup()
         conversations.cleanup()
+        contactDirect.cleanup()
     }
 
     private fun packetEntity(
@@ -154,13 +166,18 @@ class MessageRouter(
         outgoing: Boolean,
         hopCount: Int,
     ): ConversationMessageEntity {
-        val body = payload.body as PublicTextBody
+        val text = when (val body = payload.body) {
+            is PublicTextBody -> body.text
+            is DirectTextBody -> body.text
+            else -> error("Packet is not a conversation message")
+        }
+        val conversationId = (payload.body as? DirectTextBody)?.conversationId ?: CHANNEL_ID
         return ConversationMessageEntity(
-            messageId = payload.packetId.toString(), conversationId = CHANNEL_ID,
-            kind = payload.kind, audienceType = AudienceType.PUBLIC_CHANNEL, audienceId = CHANNEL_ID,
+            messageId = payload.packetId.toString(), conversationId = conversationId,
+            kind = payload.kind, audienceType = payload.audience.type, audienceId = payload.audience.id,
             originNodeId = payload.originNodeId, originName = originName,
             originSequence = payload.originSequence, createdAt = payload.createdAt,
-            expiresAt = payload.expiresAt, text = body.text, outgoing = outgoing, hopCount = hopCount,
+            expiresAt = payload.expiresAt, text = text, outgoing = outgoing, hopCount = hopCount,
         )
     }
 
@@ -182,16 +199,71 @@ class MessageRouter(
         payload: PayloadV2,
     ): IngestResult {
         if (!sameSignedPacket(existing, incoming)) return IngestResult.Rejected("Packet ID collision")
-        val shouldProject = payload.kind == PacketKind.PUBLIC_TEXT && payload.audience == Audience.PublicChannel
-        return if (shouldProject && existing.projectionState == ProjectionState.STORED_ONLY) {
-            projectPublic(payload, existing.hopCount)
+        if (
+            payload.kind == PacketKind.DIRECT_TEXT &&
+            existing.projectionState == ProjectionState.PROJECTED &&
+            (payload.audience as Audience.DirectNode).nodeId == signer.nodeId
+        ) {
+            contactDirect.recoverReceiptForProjectedDirect(payload)
+            return IngestResult.Duplicate(existing.packetId)
+        }
+        val canRetryProjection = existing.projectionState == ProjectionState.STORED_ONLY && when (payload.kind) {
+            PacketKind.PUBLIC_TEXT,
+            PacketKind.CONTACT_REQUEST,
+            PacketKind.CONTACT_ACCEPT,
+            PacketKind.CONTACT_DECLINE,
+            PacketKind.DIRECT_TEXT,
+            PacketKind.DELIVERY_RECEIPT,
+            -> true
+            else -> false
+        }
+        return if (canRetryProjection) {
+            projectPayload(payload, incoming.originPublicKey, existing.hopCount)
         } else {
             IngestResult.Duplicate(existing.packetId)
         }
     }
 
+    private suspend fun projectPayload(payload: PayloadV2, originPublicKey: ByteArray, hopCount: Int): IngestResult =
+        when (payload.kind) {
+            PacketKind.PUBLIC_TEXT -> projectPublic(payload, hopCount)
+            else -> contactDirect.project(payload, originPublicKey, hopCount)
+        }
+
+    override suspend fun promoteProcessed(packetId: String): IngestResult {
+        if (!packets.markProjected(packetId) && packets.find(packetId)?.projectionState != ProjectionState.PROJECTED) {
+            return IngestResult.StoredOnly(packetId)
+        }
+        return IngestResult.Projected(packetId)
+    }
+
+    override suspend fun suppress(packetId: String): IngestResult {
+        packets.markSuppressed(packetId)
+        return IngestResult.StoredOnly(packetId)
+    }
+
+    override suspend fun createLocalPacket(
+        kind: PacketKind,
+        audience: Audience.DirectNode,
+        expiresAt: Long,
+        packetId: UUID,
+        body: (UUID) -> PacketBody,
+    ): PayloadV2 {
+        val now = clock()
+        val payload = PayloadV2(
+            packetId, kind, audience, signer.nodeId, displayName(), packets.nextSequence(), now,
+            expiresAt, kind.requiredRelayPolicy, body(packetId),
+        )
+        val payloadBytes = ProtocolCodec.encodePayload(payload)
+        val packet = SignedPacket(payloadBytes, signer.sign(payloadBytes), signer.publicKey)
+        val envelope = RelayEnvelope(packet, DEFAULT_TTL, 0, listOf(signer.nodeId))
+        check(packets.insert(packetEntity(payload, envelope, projected = false, receivedAt = now))) {
+            "Packet ID collision"
+        }
+        return payload
+    }
+
     private suspend fun projectPublic(payload: PayloadV2, hopCount: Int): IngestResult {
-        val packetId = payload.packetId.toString()
         val outgoing = payload.originNodeId == signer.nodeId
         val originName = if (outgoing) {
             displayName()
@@ -199,6 +271,16 @@ class MessageRouter(
             peers.find(payload.originNodeId)?.displayName
                 ?: payload.originDisplayName.take(32).ifBlank { "Node ${payload.originNodeId.take(8)}" }
         }
+        return projectConversation(payload, originName, outgoing, hopCount)
+    }
+
+    override suspend fun projectConversation(
+        payload: PayloadV2,
+        originName: String,
+        outgoing: Boolean,
+        hopCount: Int,
+    ): IngestResult {
+        val packetId = payload.packetId.toString()
         val message = conversationEntity(payload, originName, outgoing = outgoing, hopCount = hopCount)
         val inserted = conversations.insert(message)
         if (!inserted) {
@@ -218,8 +300,10 @@ class MessageRouter(
     ): Boolean = existing.copy(
         originName = expected.originName,
         relayed = expected.relayed,
+        delivered = expected.delivered,
     ) == expected
 
     private fun fingerprintNodeId(publicKey: ByteArray): String = MessageDigest.getInstance("SHA-256")
         .digest(publicKey).joinToString("") { "%02x".format(it) }.take(32)
+
 }

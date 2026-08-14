@@ -1,0 +1,257 @@
+package com.resqnet.app.contacts
+
+import com.resqnet.app.data.*
+import com.resqnet.app.mesh.IngestResult
+import com.resqnet.app.protocol.*
+import java.security.MessageDigest
+import java.util.UUID
+
+internal interface ContactDirectPort {
+    val localNodeId: String
+    fun localDisplayName(): String
+    fun now(): Long
+    suspend fun createLocalPacket(
+        kind: PacketKind,
+        audience: Audience.DirectNode,
+        expiresAt: Long,
+        packetId: UUID = UUID.randomUUID(),
+        body: (UUID) -> PacketBody,
+    ): PayloadV2
+    suspend fun projectConversation(
+        payload: PayloadV2,
+        originName: String,
+        outgoing: Boolean,
+        hopCount: Int,
+    ): IngestResult
+    suspend fun promoteProcessed(packetId: String): IngestResult
+    suspend fun suppress(packetId: String): IngestResult
+}
+
+internal class ContactDirectHandler(
+    private val port: ContactDirectPort,
+    private val packets: PacketRepository,
+    private val conversations: ConversationRepository,
+    private val peers: PeerRepository,
+    private val contacts: ContactRepository?,
+    private val receipts: ReceiptRepository?,
+) {
+    suspend fun createDirectMessage(nodeId: String, text: String): ConversationMessageEntity {
+        val clean = text.trim()
+        require(clean.isNotEmpty()) { "Message cannot be empty" }
+        require(clean.toByteArray(Charsets.UTF_8).size <= MAX_TEXT_BYTES) {
+            "Message is longer than 500 UTF-8 bytes"
+        }
+        val contact = requireNotNull(contacts?.find(nodeId)) { "Direct messages require a trusted contact" }
+        require(contact.state == ContactState.TRUSTED) { "Direct messages require a trusted, unblocked contact" }
+        val conversationId = directConversationId(port.localNodeId, nodeId)
+        val payload = port.createLocalPacket(
+            PacketKind.DIRECT_TEXT, Audience.DirectNode(nodeId), port.now() + PROPAGATION_WINDOW_MS,
+        ) { DirectTextBody(conversationId, clean) }
+        check(port.projectConversation(payload, port.localDisplayName(), true, 0) is IngestResult.Projected) {
+            "Could not project local direct message"
+        }
+        return checkNotNull(conversations.find(payload.packetId.toString())) { "Projected message is missing" }
+    }
+
+    suspend fun requestContact(nodeId: String, confirmedFingerprint: String): ContactEntity {
+        val contactStore = requireNotNull(contacts) { "Contact persistence is unavailable" }
+        val peer = requireNotNull(peers.find(nodeId)) { "Contact requests require a currently discovered peer" }
+        require(peer.fingerprint == confirmedFingerprint) { "Displayed fingerprint was not confirmed" }
+        contactStore.find(nodeId)?.let { existing ->
+            if (!existing.state.isPending || existing.expiresAt > port.now()) {
+                throw IllegalStateException("A contact state already exists for this node")
+            }
+            contactStore.delete(nodeId)
+        }
+        val payload = port.createLocalPacket(
+            PacketKind.CONTACT_REQUEST, Audience.DirectNode(nodeId), port.now() + PROPAGATION_WINDOW_MS,
+        ) { packetId -> ContactRequestBody(packetId.toString(), port.localDisplayName()) }
+        val contact = ContactEntity(
+            nodeId, peer.displayName, peer.publicKey, peer.fingerprint, ContactState.PENDING_OUTGOING,
+            payload.packetId.toString(), null, payload.expiresAt, port.now(),
+        )
+        contactStore.upsert(contact)
+        packets.markProjected(payload.packetId.toString())
+        return contact
+    }
+
+    suspend fun acceptContact(nodeId: String): ContactEntity {
+        val contactStore = requireNotNull(contacts) { "Contact persistence is unavailable" }
+        val existing = requireNotNull(contactStore.find(nodeId)) { "No pending contact request" }
+        require(existing.state == ContactState.PENDING_INCOMING && existing.expiresAt > port.now()) {
+            "No active incoming contact request"
+        }
+        val requestId = requireNotNull(existing.incomingRequestId)
+        val payload = port.createLocalPacket(
+            PacketKind.CONTACT_ACCEPT, Audience.DirectNode(nodeId), port.now() + PROPAGATION_WINDOW_MS,
+        ) { ContactAcceptBody(requestId) }
+        val trusted = existing.copy(
+            state = ContactState.TRUSTED, outgoingRequestId = null, incomingRequestId = null,
+            expiresAt = Long.MAX_VALUE, updatedAt = port.now(),
+        )
+        contactStore.upsert(trusted)
+        packets.markProjected(payload.packetId.toString())
+        return trusted
+    }
+
+    suspend fun declineContact(nodeId: String) {
+        val contactStore = requireNotNull(contacts) { "Contact persistence is unavailable" }
+        val existing = requireNotNull(contactStore.find(nodeId)) { "No pending contact request" }
+        require(existing.state == ContactState.PENDING_INCOMING && existing.expiresAt > port.now()) {
+            "No active incoming contact request"
+        }
+        val requestId = requireNotNull(existing.incomingRequestId)
+        val payload = port.createLocalPacket(
+            PacketKind.CONTACT_DECLINE, Audience.DirectNode(nodeId), port.now() + PROPAGATION_WINDOW_MS,
+        ) { ContactDeclineBody(requestId) }
+        contactStore.delete(nodeId)
+        packets.markProjected(payload.packetId.toString())
+    }
+
+    suspend fun removeContact(nodeId: String) =
+        requireNotNull(contacts) { "Contact persistence is unavailable" }.delete(nodeId)
+
+    suspend fun blockContact(nodeId: String): ContactEntity {
+        val contactStore = requireNotNull(contacts) { "Contact persistence is unavailable" }
+        val existing = contactStore.find(nodeId)
+        val peer = if (existing == null) requireNotNull(peers.find(nodeId)) { "Unknown node" } else null
+        return ContactEntity(
+            nodeId, existing?.displayName ?: peer!!.displayName,
+            existing?.publicKey ?: peer!!.publicKey, existing?.fingerprint ?: peer!!.fingerprint,
+            ContactState.BLOCKED, null, null, Long.MAX_VALUE, port.now(),
+        ).also { contactStore.upsert(it) }
+    }
+
+    suspend fun unblockContact(nodeId: String) {
+        val contactStore = requireNotNull(contacts) { "Contact persistence is unavailable" }
+        require(contactStore.find(nodeId)?.state == ContactState.BLOCKED) { "Node is not blocked" }
+        contactStore.delete(nodeId)
+    }
+
+    suspend fun cleanup() = contacts?.deleteExpiredPending(port.now())
+
+    suspend fun project(payload: PayloadV2, originPublicKey: ByteArray, hopCount: Int): IngestResult =
+        when (payload.kind) {
+            PacketKind.CONTACT_REQUEST -> projectContactRequest(payload, originPublicKey)
+            PacketKind.CONTACT_ACCEPT -> projectContactAccept(payload)
+            PacketKind.CONTACT_DECLINE -> projectContactDecline(payload)
+            PacketKind.DIRECT_TEXT -> projectDirect(payload, originPublicKey, hopCount)
+            PacketKind.DELIVERY_RECEIPT -> projectReceipt(payload)
+            else -> IngestResult.StoredOnly(payload.packetId.toString())
+        }
+
+    suspend fun recoverReceiptForProjectedDirect(payload: PayloadV2) {
+        if ((payload.audience as Audience.DirectNode).nodeId == port.localNodeId) generateReceiptOnce(payload)
+    }
+
+    private suspend fun projectContactRequest(payload: PayloadV2, originPublicKey: ByteArray): IngestResult {
+        val packetId = payload.packetId.toString()
+        val contactStore = contacts ?: return IngestResult.StoredOnly(packetId)
+        if ((payload.audience as Audience.DirectNode).nodeId != port.localNodeId) return IngestResult.StoredOnly(packetId)
+        val body = payload.body as ContactRequestBody
+        if (body.requestId != packetId) return port.suppress(packetId)
+        var current = contactStore.find(payload.originNodeId)
+        if (current?.state?.isPending == true && current.expiresAt <= port.now()) {
+            contactStore.delete(payload.originNodeId)
+            current = null
+        }
+        if (current?.state == ContactState.BLOCKED) return port.suppress(packetId)
+        val contact = when (current?.state) {
+            ContactState.TRUSTED, ContactState.PENDING_INCOMING -> current
+            ContactState.PENDING_OUTGOING -> current.copy(
+                state = ContactState.PENDING_INCOMING, incomingRequestId = packetId,
+                expiresAt = payload.expiresAt, updatedAt = port.now(),
+            )
+            null -> ContactEntity(
+                payload.originNodeId, body.requesterName, originPublicKey, displayFingerprint(originPublicKey),
+                ContactState.PENDING_INCOMING, null, packetId, payload.expiresAt, port.now(),
+            )
+            ContactState.BLOCKED -> return port.suppress(packetId)
+        }
+        contactStore.upsert(contact)
+        return port.promoteProcessed(packetId)
+    }
+
+    private suspend fun projectContactAccept(payload: PayloadV2): IngestResult {
+        val packetId = payload.packetId.toString()
+        val contactStore = contacts ?: return IngestResult.StoredOnly(packetId)
+        if ((payload.audience as Audience.DirectNode).nodeId != port.localNodeId) return IngestResult.StoredOnly(packetId)
+        val current = contactStore.find(payload.originNodeId) ?: return port.suppress(packetId)
+        val requestId = (payload.body as ContactAcceptBody).requestId
+        if (current.state == ContactState.BLOCKED || current.outgoingRequestId != requestId || current.expiresAt <= port.now()) {
+            return port.suppress(packetId)
+        }
+        contactStore.upsert(current.copy(
+            state = ContactState.TRUSTED, outgoingRequestId = null, incomingRequestId = null,
+            expiresAt = Long.MAX_VALUE, updatedAt = port.now(),
+        ))
+        return port.promoteProcessed(packetId)
+    }
+
+    private suspend fun projectContactDecline(payload: PayloadV2): IngestResult {
+        val packetId = payload.packetId.toString()
+        val contactStore = contacts ?: return IngestResult.StoredOnly(packetId)
+        if ((payload.audience as Audience.DirectNode).nodeId != port.localNodeId) return IngestResult.StoredOnly(packetId)
+        val current = contactStore.find(payload.originNodeId) ?: return port.suppress(packetId)
+        val requestId = (payload.body as ContactDeclineBody).requestId
+        if (current.state == ContactState.BLOCKED || current.outgoingRequestId != requestId || current.expiresAt <= port.now()) {
+            return port.suppress(packetId)
+        }
+        contactStore.delete(payload.originNodeId)
+        return port.promoteProcessed(packetId)
+    }
+
+    private suspend fun projectDirect(payload: PayloadV2, originPublicKey: ByteArray, hopCount: Int): IngestResult {
+        val packetId = payload.packetId.toString()
+        val contactStore = contacts ?: return IngestResult.StoredOnly(packetId)
+        if ((payload.audience as Audience.DirectNode).nodeId != port.localNodeId) return IngestResult.StoredOnly(packetId)
+        val contact = contactStore.find(payload.originNodeId) ?: return port.suppress(packetId)
+        if (contact.state != ContactState.TRUSTED || !contact.publicKey.contentEquals(originPublicKey)) {
+            return port.suppress(packetId)
+        }
+        val body = payload.body as DirectTextBody
+        if (body.conversationId != directConversationId(port.localNodeId, payload.originNodeId)) {
+            return port.suppress(packetId)
+        }
+        val projected = port.projectConversation(payload, contact.displayName, false, hopCount)
+        if (projected !is IngestResult.Projected) return projected
+        generateReceiptOnce(payload)
+        return projected
+    }
+
+    private suspend fun generateReceiptOnce(original: PayloadV2) {
+        val receiptStore = receipts ?: return
+        val messageId = original.packetId.toString()
+        val targetNodeId = original.originNodeId
+        var claim = receiptStore.find(messageId, targetNodeId)
+        if (claim == null) {
+            val receiptPacketId = UUID.randomUUID()
+            receiptStore.insert(MessageReceiptEntity(messageId, targetNodeId, receiptPacketId.toString(), port.now()))
+            claim = receiptStore.find(messageId, targetNodeId) ?: return
+        }
+        if (packets.find(claim.receiptPacketId) != null) return
+        val receiptPacketId = UUID.fromString(claim.receiptPacketId)
+        val receiptPayload = port.createLocalPacket(
+            PacketKind.DELIVERY_RECEIPT, Audience.DirectNode(targetNodeId),
+            port.now() + PROPAGATION_WINDOW_MS, receiptPacketId,
+        ) { DeliveryReceiptBody(messageId) }
+        packets.markProjected(receiptPayload.packetId.toString())
+    }
+
+    private suspend fun projectReceipt(payload: PayloadV2): IngestResult {
+        val packetId = payload.packetId.toString()
+        if ((payload.audience as Audience.DirectNode).nodeId != port.localNodeId) return port.suppress(packetId)
+        val body = payload.body as DeliveryReceiptBody
+        val original = conversations.find(body.messageId) ?: return port.suppress(packetId)
+        if (
+            original.kind != PacketKind.DIRECT_TEXT || !original.outgoing ||
+            original.originNodeId != port.localNodeId || original.audienceId != payload.originNodeId
+        ) return port.suppress(packetId)
+        receipts?.insert(MessageReceiptEntity(body.messageId, payload.originNodeId, packetId, port.now()))
+        conversations.markDelivered(body.messageId)
+        return port.promoteProcessed(packetId)
+    }
+
+    private fun displayFingerprint(publicKey: ByteArray): String = MessageDigest.getInstance("SHA-256")
+        .digest(publicKey).joinToString("") { "%02x".format(it) }.take(16).chunked(4).joinToString("-")
+}

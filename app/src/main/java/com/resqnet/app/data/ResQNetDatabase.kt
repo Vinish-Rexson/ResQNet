@@ -12,6 +12,7 @@ import androidx.room.TypeConverters
         PacketEntity::class,
         ConversationMessageEntity::class,
         PeerEntity::class,
+        ContactEntity::class,
         PeerDeliveryEntity::class,
         MessageReceiptEntity::class,
         LocalStateEntity::class,

@@ -9,6 +9,21 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MeshDao {
+    @Query("SELECT * FROM contacts ORDER BY displayName COLLATE NOCASE ASC, nodeId ASC")
+    fun observeContacts(): Flow<List<ContactEntity>>
+
+    @Query("SELECT * FROM contacts WHERE nodeId = :nodeId")
+    suspend fun contact(nodeId: String): ContactEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertContact(contact: ContactEntity)
+
+    @Query("DELETE FROM contacts WHERE nodeId = :nodeId")
+    suspend fun deleteContact(nodeId: String)
+
+    @Query("DELETE FROM contacts WHERE state IN ('PENDING_OUTGOING', 'PENDING_INCOMING') AND expiresAt <= :now")
+    suspend fun deleteExpiredPendingContacts(now: Long)
+
     @Query("SELECT * FROM conversation_messages ORDER BY createdAt ASC, originSequence ASC, messageId ASC")
     fun observeMessages(): Flow<List<ConversationMessageEntity>>
 
@@ -21,6 +36,9 @@ interface MeshDao {
     @Query("UPDATE conversation_messages SET relayed = 1 WHERE messageId = :id")
     suspend fun markConversationRelayed(id: String)
 
+    @Query("UPDATE conversation_messages SET delivered = 1 WHERE messageId = :id")
+    suspend fun markConversationDelivered(id: String)
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertPacket(packet: PacketEntity): Long
 
@@ -29,6 +47,9 @@ interface MeshDao {
 
     @Query("UPDATE packets SET projectionState = 'PROJECTED' WHERE packetId = :id AND projectionState = 'STORED_ONLY'")
     suspend fun markPacketProjected(id: String): Int
+
+    @Query("UPDATE packets SET projectionState = 'SUPPRESSED' WHERE packetId = :id AND projectionState = 'STORED_ONLY'")
+    suspend fun markPacketSuppressed(id: String): Int
 
     @Query("SELECT * FROM packets WHERE packetId IN (:ids)")
     suspend fun packets(ids: List<String>): List<PacketEntity>
@@ -51,6 +72,12 @@ interface MeshDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertReceipt(receipt: MessageReceiptEntity)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertReceipt(receipt: MessageReceiptEntity): Long
+
+    @Query("SELECT * FROM message_receipts WHERE messageId = :messageId AND recipientNodeId = :recipientNodeId")
+    suspend fun receipt(messageId: String, recipientNodeId: String): MessageReceiptEntity?
 
     @Query("SELECT * FROM local_state WHERE `key` = :key")
     suspend fun state(key: String): LocalStateEntity?

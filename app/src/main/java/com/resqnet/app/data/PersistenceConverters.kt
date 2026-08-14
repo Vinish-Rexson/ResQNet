@@ -14,4 +14,6 @@ class PersistenceConverters {
     @TypeConverter fun stringToRelayPolicy(value: String): RelayPolicy = RelayPolicy.valueOf(value)
     @TypeConverter fun projectionStateToString(value: ProjectionState): String = value.name
     @TypeConverter fun stringToProjectionState(value: String): ProjectionState = ProjectionState.valueOf(value)
+    @TypeConverter fun contactStateToString(value: ContactState): String = value.name
+    @TypeConverter fun stringToContactState(value: String): ContactState = ContactState.valueOf(value)
 }
