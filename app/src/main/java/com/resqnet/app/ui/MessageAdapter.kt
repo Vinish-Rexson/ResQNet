@@ -6,14 +6,14 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.resqnet.app.R
-import com.resqnet.app.data.MessageEntity
+import com.resqnet.app.data.ConversationMessageEntity
 import java.text.SimpleDateFormat
 import java.util.*
 
-class MessageAdapter : ListAdapter<MessageEntity, MessageAdapter.Holder>(Diff) {
-    object Diff : DiffUtil.ItemCallback<MessageEntity>() {
-        override fun areItemsTheSame(old: MessageEntity, new: MessageEntity) = old.messageId == new.messageId
-        override fun areContentsTheSame(old: MessageEntity, new: MessageEntity) = old == new
+class MessageAdapter : ListAdapter<ConversationMessageEntity, MessageAdapter.Holder>(Diff) {
+    object Diff : DiffUtil.ItemCallback<ConversationMessageEntity>() {
+        override fun areItemsTheSame(old: ConversationMessageEntity, new: ConversationMessageEntity) = old.messageId == new.messageId
+        override fun areContentsTheSame(old: ConversationMessageEntity, new: ConversationMessageEntity) = old == new
     }
     class Holder(view: View) : RecyclerView.ViewHolder(view) {
         val bubble: LinearLayout = view.findViewById(R.id.messageBubble)

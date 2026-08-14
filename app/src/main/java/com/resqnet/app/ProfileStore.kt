@@ -4,10 +4,20 @@ import android.content.Context
 
 class ProfileStore(context: Context) {
     private val prefs = context.getSharedPreferences("resqnet_profile", Context.MODE_PRIVATE)
+
+    init {
+        if (!prefs.contains("v2_upgrade_notice_pending")) {
+            prefs.edit().putBoolean("v2_upgrade_notice_pending", configured).apply()
+        }
+    }
     var displayName: String
         get() = prefs.getString("display_name", "") ?: ""
         set(value) { prefs.edit().putString("display_name", value.trim()).apply() }
     val configured: Boolean get() = displayName.isNotBlank()
+
+    var v2UpgradeNoticePending: Boolean
+        get() = prefs.getBoolean("v2_upgrade_notice_pending", false)
+        set(value) { prefs.edit().putBoolean("v2_upgrade_notice_pending", value).apply() }
 
     var demoTopologyEnabled: Boolean
         get() = prefs.getBoolean("demo_topology", false)

@@ -15,7 +15,7 @@ import com.resqnet.app.ProfileStore
 import com.resqnet.app.mesh.MeshTransport
 import com.resqnet.app.mesh.TransportEvent
 import com.resqnet.app.protocol.MeshFrame
-import com.resqnet.app.protocol.PROTOCOL_VERSION
+import com.resqnet.app.protocol.TRANSPORT_VERSION
 import com.resqnet.app.protocol.ProtocolCodec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -92,7 +92,7 @@ class BleMeshTransport(
     private fun startAdvertising() {
         val advertiser = adapter.bluetoothLeAdvertiser ?: error("BLE advertising is not supported")
         val nodePrefix = hexToBytes(localNodeId.take(16))
-        val serviceData = ByteBuffer.allocate(10).put(PROTOCOL_VERSION.toByte()).put(profile.demoRole.code).put(nodePrefix).array()
+        val serviceData = ByteBuffer.allocate(10).put(TRANSPORT_VERSION.toByte()).put(profile.demoRole.code).put(nodePrefix).array()
         val settings = AdvertiseSettings.Builder().setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM).setConnectable(true).build()
         // Legacy advertisements have separate 31-byte limits for the primary packet and
@@ -123,7 +123,7 @@ class BleMeshTransport(
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val bytes = result.scanRecord?.getServiceData(ParcelUuid(SERVICE_UUID)) ?: return
-            if (bytes.size < 10 || bytes[0].toInt() != PROTOCOL_VERSION) return
+            if (bytes.size < 10 || bytes[0].toInt() != TRANSPORT_VERSION) return
             val role = DemoRole.from(bytes[1])
             if (!linkAllowed(profile.demoRole, role)) return
             val peer = bytes.copyOfRange(2, 10).joinToString("") { "%02x".format(it) }

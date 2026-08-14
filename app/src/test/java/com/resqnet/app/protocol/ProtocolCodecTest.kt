@@ -1,34 +1,153 @@
 package com.resqnet.app.protocol
 
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.UUID
 
 class ProtocolCodecTest {
-    @Test fun payloadRoundTripPreservesEveryField() {
-        val original = ChatPayload(UUID.randomUUID(), originNodeId = "node-a", originSequence = 9,
-            createdAt = 100, expiresAt = 200, text = "Flood route is clear ✅")
-        assertEquals(original, ProtocolCodec.decodePayload(ProtocolCodec.encodePayload(original)))
+    @Test fun typedPayloadsRoundTripAcrossAudienceAndBodyFamilies() {
+        val cases = listOf(
+            payload(PacketKind.PUBLIC_TEXT, Audience.PublicChannel, PublicTextBody("Flood route is clear ✅")),
+            payload(PacketKind.DIRECT_TEXT, Audience.DirectNode("node-b"), DirectTextBody("dm-1", "Need batteries")),
+            payload(PacketKind.CONTACT_REQUEST, Audience.DirectNode("node-b"), ContactRequestBody("request-1", "Alice")),
+            payload(
+                PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT,
+                Audience.Circle("circle-1"),
+                CircleMembershipSnapshotBody("circle-1", 3, "Family", "node-a", listOf("node-a", "node-b")),
+            ),
+            payload(
+                PacketKind.CIRCLE_STATUS,
+                Audience.Circle("circle-1"),
+                CircleStatusBody("circle-1", 3, SafetyStatus.NEED_HELP, "Need insulin"),
+            ),
+        )
+
+        cases.forEach { original ->
+            val decoded = ProtocolCodec.decodePayload(ProtocolCodec.encodePayload(original))
+            assertEquals(original, decoded)
+            assertEquals(original.kind, decoded.body.kind)
+        }
     }
 
-    @Test fun frameRoundTripSupportsChunkSizedPacket() {
-        val payload = ProtocolCodec.encodePayload(ChatPayload(UUID.randomUUID(), originNodeId = "a".repeat(32),
-            originSequence = 1, createdAt = 1, expiresAt = 2, text = "x".repeat(500)))
-        val packet = SignedChatPacket(payload, ByteArray(72) { 3 }, ByteArray(91) { 4 })
-        val frame = MeshFrame.Packet(RelayEnvelope(packet, 4, 2, listOf("a", "b")))
+    @Test fun rejectsEnvelopeWhoseTtlAndHopCountExceedTheSixHopBudget() {
+        val packet = SignedPacket(byteArrayOf(1), byteArrayOf(2), byteArrayOf(3))
+        val invalid = RelayEnvelope(packet, ttlRemaining = DEFAULT_TTL, hopCount = 1, hopTrace = listOf("node-a"))
+
+        assertThrows(IllegalArgumentException::class.java) { ProtocolCodec.encodeEnvelope(invalid) }
+    }
+
+    @Test fun packetAndFrameRoundTripsPreserveSignedBytes() {
+        val payloadBytes = ProtocolCodec.encodePayload(
+            payload(PacketKind.PUBLIC_TEXT, Audience.PublicChannel, PublicTextBody("x".repeat(500))),
+        )
+        val packet = SignedPacket(payloadBytes, ByteArray(72) { 3 }, ByteArray(91) { 4 })
+        val frame = MeshFrame.Packet(RelayEnvelope(packet, 4, 2, listOf("node-a", "node-r")))
+
         val decoded = ProtocolCodec.decodeFrame(ProtocolCodec.encodeFrame(frame)) as MeshFrame.Packet
+
         assertArrayEquals(packet.payloadBytes, decoded.envelope.packet.payloadBytes)
-        assertEquals(listOf("a", "b"), decoded.envelope.hopTrace)
+        assertArrayEquals(packet.signature, decoded.envelope.packet.signature)
+        assertEquals(listOf("node-a", "node-r"), decoded.envelope.hopTrace)
     }
 
-    @Test fun rejectsOversizedUtf8Message() {
-        val payload = ChatPayload(UUID.randomUUID(), originNodeId = "node", originSequence = 1,
-            createdAt = 1, expiresAt = 2, text = "é".repeat(251))
-        assertThrows(IllegalArgumentException::class.java) { ProtocolCodec.encodePayload(payload) }
+    @Test fun rejectsRqp1WrongVersionAndUnknownKindOrAudienceTags() {
+        assertThrows(IllegalArgumentException::class.java) {
+            ProtocolCodec.decodePayload(byteArrayOf(0x52, 0x51, 0x50, 0x31))
+        }
+        val encoded = ProtocolCodec.encodePayload(
+            payload(PacketKind.PUBLIC_TEXT, Audience.PublicChannel, PublicTextBody("hello")),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            ProtocolCodec.decodePayload(encoded.clone().also { it[7] = 1 })
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ProtocolCodec.decodePayload(encoded.clone().also { it[24] = 99.toByte() })
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ProtocolCodec.decodePayload(encoded.clone().also { it[25] = 99.toByte() })
+        }
     }
 
-    @Test fun rejectsTrailingBytes() {
-        val bytes = ProtocolCodec.encodeFrame(MeshFrame.Ack("id")) + byteArrayOf(1)
-        assertThrows(IllegalArgumentException::class.java) { ProtocolCodec.decodeFrame(bytes) }
+    @Test fun rejectsOversizedUtf8TextNamesNotesAndCircleMembership() {
+        assertThrows(IllegalArgumentException::class.java) {
+            ProtocolCodec.encodePayload(payload(PacketKind.PUBLIC_TEXT, Audience.PublicChannel, PublicTextBody("é".repeat(251))))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ProtocolCodec.encodePayload(
+                payload(PacketKind.CONTACT_REQUEST, Audience.DirectNode("node-b"), ContactRequestBody("r", "é".repeat(33))),
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ProtocolCodec.encodePayload(
+                payload(PacketKind.CIRCLE_STATUS, Audience.Circle("c"), CircleStatusBody("c", 1, SafetyStatus.SAFE, "é".repeat(81))),
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ProtocolCodec.encodePayload(
+                payload(
+                    PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT,
+                    Audience.Circle("c"),
+                    CircleMembershipSnapshotBody("c", 1, "Family", "owner", List(21) { "member-$it" }),
+                ),
+            )
+        }
     }
+
+    @Test fun rejectsMalformedTrailingAndInvalidEnvelopeBounds() {
+        val payloadBytes = ProtocolCodec.encodePayload(
+            payload(PacketKind.PUBLIC_TEXT, Audience.PublicChannel, PublicTextBody("hello")),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            ProtocolCodec.decodePayload(payloadBytes.copyOf(payloadBytes.size - 1))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ProtocolCodec.decodePayload(payloadBytes + byteArrayOf(1))
+        }
+        val packet = SignedPacket(payloadBytes, byteArrayOf(1), byteArrayOf(2))
+        assertThrows(IllegalArgumentException::class.java) {
+            ProtocolCodec.encodeEnvelope(RelayEnvelope(packet, ttlRemaining = -1))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ProtocolCodec.encodeEnvelope(RelayEnvelope(packet, ttlRemaining = 0, hopCount = MAX_HOPS + 1))
+        }
+    }
+
+    @Test fun rejectsPacketKindPairedWithWrongAudienceType() {
+        val invalid = payload(
+            PacketKind.PUBLIC_TEXT,
+            Audience.DirectNode("node-b"),
+            PublicTextBody("misaddressed public message"),
+        )
+
+        assertThrows(IllegalArgumentException::class.java) { ProtocolCodec.encodePayload(invalid) }
+    }
+
+    @Test fun rejectsCircleBodyAddressedToDifferentCircleAudience() {
+        val invalid = payload(
+            PacketKind.CIRCLE_TEXT,
+            Audience.Circle("circle-a"),
+            CircleTextBody("circle-b", 1, "Wrong circle"),
+        )
+
+        assertThrows(IllegalArgumentException::class.java) { ProtocolCodec.encodePayload(invalid) }
+    }
+
+    private fun payload(kind: PacketKind, audience: Audience, body: PacketBody) = PayloadV2(
+        packetId = UUID.fromString("00000000-0000-0000-0000-000000000001"),
+        kind = kind,
+        audience = audience,
+        originNodeId = "node-a",
+        originDisplayName = "Alice",
+        originSequence = 9,
+        createdAt = 100,
+        expiresAt = 200,
+        relayPolicy = when (kind) {
+            PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT -> RelayPolicy.DURABLE_UNTIL_SUPERSEDED
+            else -> RelayPolicy.EPHEMERAL
+        },
+        body = body,
+    ).also { assertTrue(it.originSequence > 0) }
 }

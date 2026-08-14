@@ -6,62 +6,189 @@ import com.resqnet.app.security.IdentitySigner
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.*
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.security.*
+import java.security.KeyFactory
+import java.security.KeyPairGenerator
+import java.security.MessageDigest
+import java.security.Signature
 import java.security.spec.X509EncodedKeySpec
+import java.util.UUID
 
 class MessageRouterTest {
-    @Test fun acceptsSignedPacketThenDeduplicatesIt() = runTest {
-        val clock = { 1_000L }
-        val aRepo = MemoryMessages(clock); val bRepo = MemoryMessages(clock)
-        val a = MessageRouter(aRepo, MemoryPeers(), JvmSigner(), { "Alice" }, clock)
-        val b = MessageRouter(bRepo, MemoryPeers(), JvmSigner(), { "Bob" }, clock)
-        val created = a.createMessage("hello through the mesh")
-        val envelope = ProtocolCodec.decodeEnvelope(created.packetBytes)
-        assertTrue(b.ingest(envelope, "peer-a") is IngestResult.Accepted)
-        assertTrue(b.ingest(envelope, "peer-a") is IngestResult.Duplicate)
-        assertEquals(1, bRepo.values.size)
-        assertEquals(1, bRepo.values.values.single().hopCount)
+    @Test fun validDirectPacketPersistsOnNonRecipientRelayWithoutVisibleProjection() = runTest {
+        val now = 1_000L
+        val senderSigner = JvmSigner()
+        val relaySigner = JvmSigner()
+        val packetStore = MemoryPackets()
+        val conversations = MemoryConversations()
+        val relay = MessageRouter(packetStore, conversations, MemoryPeers(), relaySigner, { "Relay" }, { now })
+        val payload = PayloadV2(
+            UUID.randomUUID(), PacketKind.DIRECT_TEXT, Audience.DirectNode("different-recipient"),
+            senderSigner.nodeId, "Alice", 1, now, now + PROPAGATION_WINDOW_MS,
+            RelayPolicy.EPHEMERAL, DirectTextBody("conversation-1", "Are you safe?"),
+        )
+        val payloadBytes = ProtocolCodec.encodePayload(payload)
+        val envelope = RelayEnvelope(
+            SignedPacket(payloadBytes, senderSigner.sign(payloadBytes), senderSigner.publicKey),
+            hopTrace = listOf(senderSigner.nodeId),
+        )
+
+        val result = relay.ingest(envelope, senderSigner.nodeId)
+
+        assertTrue(result is IngestResult.StoredOnly)
+        assertTrue(result.hopAckEligible)
+        assertEquals(1, packetStore.values.size)
+        assertEquals(PacketKind.DIRECT_TEXT, packetStore.values.values.single().kind)
+        assertEquals(0, conversations.values.size)
     }
 
-    @Test fun rejectsTamperingAndExpiredPackets() = runTest {
+    @Test fun relayingAcrossTwoRoutersChangesOnlyEnvelopeMetadata() = runTest {
+        val now = 1_000L
+        val aPackets = MemoryPackets(); val bPackets = MemoryPackets(); val cPackets = MemoryPackets()
+        val a = MessageRouter(aPackets, MemoryConversations(), MemoryPeers(), JvmSigner(), { "Alice" }, { now })
+        val b = MessageRouter(bPackets, MemoryConversations(), MemoryPeers(), JvmSigner(), { "Bob" }, { now })
+        val c = MessageRouter(cPackets, MemoryConversations(), MemoryPeers(), JvmSigner(), { "Carol" }, { now })
+
+        val created = a.createMessage("Bridge is open")
+        val original = ProtocolCodec.decodeEnvelope(aPackets.values.getValue(created.messageId).rawEnvelope)
+        assertTrue(b.ingest(original, original.packet.originPublicKey.contentHashCode().toString()) is IngestResult.Projected)
+        val afterB = b.requestedPackets(listOf(created.messageId)).single()
+        assertTrue(c.ingest(afterB, "relay-b") is IngestResult.Projected)
+        val afterC = ProtocolCodec.decodeEnvelope(cPackets.values.getValue(created.messageId).rawEnvelope)
+
+        listOf(afterB, afterC).forEach { relayed ->
+            assertArrayEquals(original.packet.payloadBytes, relayed.packet.payloadBytes)
+            assertArrayEquals(original.packet.signature, relayed.packet.signature)
+            assertArrayEquals(original.packet.originPublicKey, relayed.packet.originPublicKey)
+        }
+        assertEquals(DEFAULT_TTL - 1, afterB.ttlRemaining)
+        assertEquals(1, afterB.hopCount)
+        assertEquals(DEFAULT_TTL - 2, afterC.ttlRemaining)
+        assertEquals(2, afterC.hopCount)
+        assertTrue(afterC.hopTrace.size > original.hopTrace.size)
+    }
+
+    @Test fun publicTextProjectsThenDeduplicatesWhileTamperingIsRejected() = runTest {
+        val now = 1_000L
+        val senderPackets = MemoryPackets(); val receiverPackets = MemoryPackets()
+        val sender = MessageRouter(senderPackets, MemoryConversations(), MemoryPeers(), JvmSigner(), { "Alice" }, { now })
+        val receiverConversations = MemoryConversations()
+        val receiver = MessageRouter(receiverPackets, receiverConversations, MemoryPeers(), JvmSigner(), { "Bob" }, { now })
+        val created = sender.createMessage("Public warning")
+        val envelope = ProtocolCodec.decodeEnvelope(senderPackets.values.getValue(created.messageId).rawEnvelope)
+
+        assertTrue(receiver.ingest(envelope, "sender") is IngestResult.Projected)
+        assertEquals("Public warning", receiverConversations.values.values.single().text)
+        assertTrue(receiver.ingest(envelope, "sender") is IngestResult.Duplicate)
+
+        val freshReceiver = MessageRouter(MemoryPackets(), MemoryConversations(), MemoryPeers(), JvmSigner(), { "Carol" }, { now })
+        val tamperedSignature = envelope.packet.signature.clone().also { it[0] = (it[0].toInt() xor 1).toByte() }
+        val tampered = envelope.copy(packet = envelope.packet.copy(signature = tamperedSignature))
+        assertTrue(freshReceiver.ingest(tampered, "sender") is IngestResult.Rejected)
+    }
+
+    @Test fun expiredPacketsAndV1HelloAreRejected() = runTest {
         var now = 1_000L
-        val a = MessageRouter(MemoryMessages { now }, MemoryPeers(), JvmSigner(), { "Alice" }, { now })
-        val b = MessageRouter(MemoryMessages { now }, MemoryPeers(), JvmSigner(), { "Bob" }, { now })
-        val envelope = ProtocolCodec.decodeEnvelope(a.createMessage("authentic").packetBytes)
-        val altered = envelope.copy(packet = envelope.packet.copy(payloadBytes = envelope.packet.payloadBytes.clone().also { it[it.lastIndex] = 1 }))
-        assertTrue(b.ingest(altered, "a") is IngestResult.Rejected)
+        val senderPackets = MemoryPackets()
+        val senderSigner = JvmSigner()
+        val sender = MessageRouter(senderPackets, MemoryConversations(), MemoryPeers(), senderSigner, { "Alice" }, { now })
+        val receiver = MessageRouter(MemoryPackets(), MemoryConversations(), MemoryPeers(), JvmSigner(), { "Bob" }, { now })
+        val created = sender.createMessage("Time limited")
+        val envelope = ProtocolCodec.decodeEnvelope(senderPackets.values.getValue(created.messageId).rawEnvelope)
         now += PROPAGATION_WINDOW_MS + 1
-        assertTrue(b.ingest(envelope, "a") is IngestResult.Rejected)
+
+        assertTrue(receiver.ingest(envelope, "sender") is IngestResult.Rejected)
+        assertTrue(!receiver.onHello(NodeProfile(
+            senderSigner.nodeId, "Alice", senderSigner.publicKey, senderSigner.fingerprint, transportVersion = 1,
+        )))
+    }
+
+    @Test fun impossibleTimingIsRejectedBeforeRawPersistence() = runTest {
+        val now = 1_000L
+        val senderSigner = JvmSigner()
+        val receiverPackets = MemoryPackets()
+        val receiver = MessageRouter(receiverPackets, MemoryConversations(), MemoryPeers(), JvmSigner(), { "Relay" }, { now })
+        val payload = PayloadV2(
+            UUID.randomUUID(), PacketKind.PUBLIC_TEXT, Audience.PublicChannel,
+            senderSigner.nodeId, "Alice", 1, createdAt = 2_000L, expiresAt = 1_500L,
+            RelayPolicy.EPHEMERAL, PublicTextBody("Impossible timeline"),
+        )
+        val bytes = ProtocolCodec.encodePayload(payload)
+        val envelope = RelayEnvelope(SignedPacket(bytes, senderSigner.sign(bytes), senderSigner.publicKey))
+
+        assertTrue(receiver.ingest(envelope, "sender") is IngestResult.Rejected)
+        assertEquals(0, receiverPackets.values.size)
+    }
+
+    @Test fun ephemeralPacketLongerThanTwentyFourHoursIsRejectedBeforePersistence() = runTest {
+        val now = 1_000L
+        val senderSigner = JvmSigner()
+        val receiverPackets = MemoryPackets()
+        val receiver = MessageRouter(receiverPackets, MemoryConversations(), MemoryPeers(), JvmSigner(), { "Relay" }, { now })
+        val payload = PayloadV2(
+            UUID.randomUUID(), PacketKind.PUBLIC_TEXT, Audience.PublicChannel,
+            senderSigner.nodeId, "Alice", 1, createdAt = now,
+            expiresAt = now + PROPAGATION_WINDOW_MS + 1,
+            RelayPolicy.EPHEMERAL, PublicTextBody("Unbounded relay"),
+        )
+        val bytes = ProtocolCodec.encodePayload(payload)
+        val envelope = RelayEnvelope(SignedPacket(bytes, senderSigner.sign(bytes), senderSigner.publicKey))
+
+        assertTrue(receiver.ingest(envelope, "sender") is IngestResult.Rejected)
+        assertEquals(0, receiverPackets.values.size)
+    }
+
+    private class MemoryPackets : PacketRepository {
+        val values = linkedMapOf<String, PacketEntity>()
+        private var sequence = 0L
+        override suspend fun insert(packet: PacketEntity): Boolean = values.putIfAbsent(packet.packetId, packet) == null
+        override suspend fun find(packetId: String) = values[packetId]
+        override suspend fun inventoryIds() = values.values.filter { it.relayEligible }.map { it.packetId }
+        override suspend fun findAll(packetIds: List<String>) = packetIds.mapNotNull(values::get)
+        override suspend fun nextSequence() = ++sequence
+        override suspend fun markRelayed(packetId: String, peerId: String) = Unit
+        override suspend fun cleanup() = Unit
+    }
+
+    private class MemoryConversations : ConversationRepository {
+        val values = linkedMapOf<String, ConversationMessageEntity>()
+        private val flow = MutableStateFlow<List<ConversationMessageEntity>>(emptyList())
+        override fun observeMessages(): Flow<List<ConversationMessageEntity>> = flow
+        override suspend fun insert(message: ConversationMessageEntity): Boolean {
+            if (values.putIfAbsent(message.messageId, message) != null) return false
+            flow.value = values.values.toList()
+            return true
+        }
+        override suspend fun markRelayed(messageId: String) = Unit
+        override suspend fun cleanup() = Unit
+    }
+
+    private class MemoryPeers : PeerRepository {
+        private val peers = mutableMapOf<String, PeerEntity>()
+        override suspend fun upsert(profile: NodeProfile) {
+            peers[profile.nodeId] = PeerEntity(
+                profile.nodeId, profile.displayName, profile.publicKey, profile.keyFingerprint,
+                profile.transportVersion, 0,
+            )
+        }
+        override suspend fun find(nodeId: String) = peers[nodeId]
     }
 
     private class JvmSigner : IdentitySigner {
         private val pair = KeyPairGenerator.getInstance("EC").apply { initialize(256) }.generateKeyPair()
         override val publicKey = pair.public.encoded
-        override val nodeId = MessageDigest.getInstance("SHA-256").digest(publicKey).joinToString("") { "%02x".format(it) }.take(32)
+        override val nodeId = MessageDigest.getInstance("SHA-256").digest(publicKey)
+            .joinToString("") { "%02x".format(it) }.take(32)
         override val fingerprint = nodeId.take(16)
-        override fun sign(payload: ByteArray) = Signature.getInstance("SHA256withECDSA").run { initSign(pair.private); update(payload); sign() }
+        override fun sign(payload: ByteArray) = Signature.getInstance("SHA256withECDSA").run {
+            initSign(pair.private); update(payload); sign()
+        }
         override fun verify(payload: ByteArray, signature: ByteArray, publicKey: ByteArray) = runCatching {
             val key = KeyFactory.getInstance("EC").generatePublic(X509EncodedKeySpec(publicKey))
             Signature.getInstance("SHA256withECDSA").run { initVerify(key); update(payload); verify(signature) }
         }.getOrDefault(false)
-    }
-
-    private class MemoryMessages(private val clock: () -> Long) : MessageRepository {
-        val values = linkedMapOf<String, MessageEntity>(); private val flow = MutableStateFlow<List<MessageEntity>>(emptyList()); private var seq = 0L
-        override fun observeMessages(): Flow<List<MessageEntity>> = flow
-        override suspend fun insert(message: MessageEntity): Boolean { if (values.containsKey(message.messageId)) return false; values[message.messageId] = message; flow.value = values.values.toList(); return true }
-        override suspend fun find(messageId: String) = values[messageId]
-        override suspend fun recentIds() = values.keys.toList()
-        override suspend fun findAll(ids: List<String>) = ids.mapNotNull(values::get)
-        override suspend fun nextSequence() = ++seq
-        override suspend fun markRelayed(messageId: String, peerId: String) { values[messageId]?.let { values[messageId] = it.copy(relayed = true) } }
-        override suspend fun cleanup() { values.entries.removeIf { it.value.createdAt < clock() - HISTORY_WINDOW_MS } }
-    }
-    private class MemoryPeers : PeerRepository {
-        private val peers = mutableMapOf<String, PeerEntity>()
-        override suspend fun upsert(profile: NodeProfile) { peers[profile.nodeId] = PeerEntity(profile.nodeId, profile.displayName, profile.publicKey, profile.keyFingerprint, profile.protocolVersion, 0) }
-        override suspend fun find(nodeId: String) = peers[nodeId]
     }
 }

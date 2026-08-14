@@ -9,23 +9,30 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MeshDao {
-    @Query("SELECT * FROM messages ORDER BY createdAt ASC, originSequence ASC, messageId ASC")
-    fun observeMessages(): Flow<List<MessageEntity>>
-
-    @Query("SELECT * FROM messages WHERE messageId = :id")
-    suspend fun message(id: String): MessageEntity?
+    @Query("SELECT * FROM conversation_messages ORDER BY createdAt ASC, originSequence ASC, messageId ASC")
+    fun observeMessages(): Flow<List<ConversationMessageEntity>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertMessage(message: MessageEntity): Long
+    suspend fun insertConversationMessage(message: ConversationMessageEntity): Long
 
-    @Query("SELECT messageId FROM messages WHERE expiresAt > :now ORDER BY createdAt DESC LIMIT :limit")
-    suspend fun recentMessageIds(now: Long, limit: Int = 2_000): List<String>
+    @Query("UPDATE conversation_messages SET relayed = 1 WHERE messageId = :id")
+    suspend fun markConversationRelayed(id: String)
 
-    @Query("SELECT * FROM messages WHERE messageId IN (:ids)")
-    suspend fun messages(ids: List<String>): List<MessageEntity>
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertPacket(packet: PacketEntity): Long
 
-    @Query("UPDATE messages SET relayed = 1 WHERE messageId = :id")
-    suspend fun markRelayed(id: String)
+    @Query("SELECT * FROM packets WHERE packetId = :id")
+    suspend fun packet(id: String): PacketEntity?
+
+    @Query("SELECT * FROM packets WHERE packetId IN (:ids)")
+    suspend fun packets(ids: List<String>): List<PacketEntity>
+
+    @Query(
+        "SELECT packetId FROM packets WHERE relayEligible = 1 " +
+            "AND (relayPolicy != 'EPHEMERAL' OR expiresAt > :now) " +
+            "ORDER BY createdAt DESC LIMIT :limit",
+    )
+    suspend fun inventoryPacketIds(now: Long, limit: Int = 2_000): List<String>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertPeer(peer: PeerEntity)
@@ -35,6 +42,9 @@ interface MeshDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertDelivery(delivery: PeerDeliveryEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertReceipt(receipt: MessageReceiptEntity)
 
     @Query("SELECT * FROM local_state WHERE `key` = :key")
     suspend fun state(key: String): LocalStateEntity?
@@ -49,9 +59,12 @@ interface MeshDao {
         return next
     }
 
-    @Query("DELETE FROM messages WHERE createdAt < :cutoff")
-    suspend fun deleteOlderThan(cutoff: Long)
+    @Query("DELETE FROM packets WHERE relayPolicy = 'EPHEMERAL' AND expiresAt <= :now")
+    suspend fun deleteExpiredEphemeralPackets(now: Long)
 
-    @Query("DELETE FROM messages WHERE messageId NOT IN (SELECT messageId FROM messages ORDER BY createdAt DESC LIMIT :limit)")
-    suspend fun trimTo(limit: Int)
+    @Query(
+        "DELETE FROM conversation_messages WHERE messageId NOT IN " +
+            "(SELECT messageId FROM conversation_messages ORDER BY createdAt DESC LIMIT :limit)",
+    )
+    suspend fun trimConversationMessages(limit: Int)
 }

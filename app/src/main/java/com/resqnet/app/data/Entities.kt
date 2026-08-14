@@ -3,23 +3,56 @@ package com.resqnet.app.data
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.resqnet.app.protocol.AudienceType
+import com.resqnet.app.protocol.PacketKind
+import com.resqnet.app.protocol.RelayPolicy
 
-@Entity(tableName = "messages", indices = [Index("createdAt"), Index("originNodeId")])
-data class MessageEntity(
+enum class ProjectionState { STORED_ONLY, PROJECTED }
+
+@Entity(
+    tableName = "packets",
+    indices = [Index("createdAt"), Index("originNodeId"), Index("relayEligible"), Index("supersessionKey")],
+)
+data class PacketEntity(
+    @PrimaryKey val packetId: String,
+    val kind: PacketKind,
+    val audienceType: AudienceType,
+    val audienceId: String?,
+    val originNodeId: String,
+    val originName: String,
+    val originSequence: Long,
+    val createdAt: Long,
+    val expiresAt: Long,
+    val relayPolicy: RelayPolicy,
+    val supersessionKey: String?,
+    val rawEnvelope: ByteArray,
+    val ttlRemaining: Int,
+    val hopCount: Int,
+    val hopTrace: String,
+    val relayEligible: Boolean,
+    val projectionState: ProjectionState,
+    val receivedAt: Long,
+)
+
+@Entity(
+    tableName = "conversation_messages",
+    indices = [Index("createdAt"), Index("originNodeId"), Index("conversationId")],
+)
+data class ConversationMessageEntity(
     @PrimaryKey val messageId: String,
-    val channelId: String,
+    val conversationId: String,
+    val kind: PacketKind,
+    val audienceType: AudienceType,
+    val audienceId: String?,
     val originNodeId: String,
     val originName: String,
     val originSequence: Long,
     val createdAt: Long,
     val expiresAt: Long,
     val text: String,
-    val packetBytes: ByteArray,
-    val ttlRemaining: Int,
-    val hopCount: Int,
-    val hopTrace: String,
     val outgoing: Boolean,
     val relayed: Boolean = false,
+    val hopCount: Int,
 )
 
 @Entity(tableName = "peers")
@@ -40,6 +73,18 @@ data class PeerDeliveryEntity(
     val retryCount: Int,
     val firstAttemptAt: Long,
     val lastAttemptAt: Long,
+)
+
+@Entity(
+    tableName = "message_receipts",
+    primaryKeys = ["messageId", "recipientNodeId"],
+    indices = [Index("receiptPacketId")],
+)
+data class MessageReceiptEntity(
+    val messageId: String,
+    val recipientNodeId: String,
+    val receiptPacketId: String,
+    val receivedAt: Long,
 )
 
 @Entity(tableName = "local_state")

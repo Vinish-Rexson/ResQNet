@@ -1,20 +1,38 @@
 package com.resqnet.app.mesh
 
-import com.resqnet.app.data.MessageEntity
-import com.resqnet.app.data.MessageRepository
+import com.resqnet.app.data.ConversationMessageEntity
+import com.resqnet.app.data.ConversationRepository
+import com.resqnet.app.data.PacketEntity
+import com.resqnet.app.data.PacketRepository
 import com.resqnet.app.data.PeerRepository
+import com.resqnet.app.data.ProjectionState
 import com.resqnet.app.protocol.*
 import com.resqnet.app.security.IdentitySigner
+import java.security.MessageDigest
 import java.util.UUID
 
 sealed interface IngestResult {
-    data class Accepted(val messageId: String) : IngestResult
-    data class Duplicate(val messageId: String) : IngestResult
-    data class Rejected(val reason: String) : IngestResult
+    val packetId: String?
+    val hopAckEligible: Boolean
+
+    data class Rejected(val reason: String) : IngestResult {
+        override val packetId: String? = null
+        override val hopAckEligible = false
+    }
+    data class Duplicate(override val packetId: String) : IngestResult {
+        override val hopAckEligible = true
+    }
+    data class StoredOnly(override val packetId: String) : IngestResult {
+        override val hopAckEligible = true
+    }
+    data class Projected(override val packetId: String) : IngestResult {
+        override val hopAckEligible = true
+    }
 }
 
 class MessageRouter(
-    private val messages: MessageRepository,
+    private val packets: PacketRepository,
+    private val conversations: ConversationRepository,
     private val peers: PeerRepository,
     private val signer: IdentitySigner,
     private val displayName: () -> String,
@@ -22,67 +40,136 @@ class MessageRouter(
 ) {
     fun localProfile() = NodeProfile(signer.nodeId, displayName(), signer.publicKey, signer.fingerprint)
 
-    suspend fun createMessage(text: String): MessageEntity {
+    suspend fun createMessage(text: String): ConversationMessageEntity {
         val clean = text.trim()
         require(clean.isNotEmpty()) { "Message cannot be empty" }
-        require(clean.toByteArray(Charsets.UTF_8).size <= MAX_MESSAGE_BYTES) { "Message is longer than 500 UTF-8 bytes" }
+        require(clean.toByteArray(Charsets.UTF_8).size <= MAX_TEXT_BYTES) { "Message is longer than 500 UTF-8 bytes" }
         val now = clock()
-        val payload = ChatPayload(UUID.randomUUID(), originNodeId = signer.nodeId,
-            originDisplayName = displayName(),
-            originSequence = messages.nextSequence(), createdAt = now, expiresAt = now + PROPAGATION_WINDOW_MS, text = clean)
+        val payload = PayloadV2(
+            UUID.randomUUID(), PacketKind.PUBLIC_TEXT, Audience.PublicChannel, signer.nodeId,
+            displayName(), packets.nextSequence(), now, now + PROPAGATION_WINDOW_MS,
+            RelayPolicy.EPHEMERAL, PublicTextBody(clean),
+        )
         val payloadBytes = ProtocolCodec.encodePayload(payload)
-        val packet = SignedChatPacket(payloadBytes, signer.sign(payloadBytes), signer.publicKey)
+        val packet = SignedPacket(payloadBytes, signer.sign(payloadBytes), signer.publicKey)
         val envelope = RelayEnvelope(packet, DEFAULT_TTL, 0, listOf(signer.nodeId))
-        val entity = entity(payload, envelope, displayName(), outgoing = true)
-        check(messages.insert(entity)) { "Message ID collision" }
-        return entity
+        val packetEntity = packetEntity(payload, envelope, projected = true, receivedAt = now)
+        check(packets.insert(packetEntity)) { "Packet ID collision" }
+        val message = conversationEntity(payload, displayName(), outgoing = true, hopCount = 0)
+        check(conversations.insert(message)) { "Message ID collision" }
+        return message
     }
 
     suspend fun ingest(envelope: RelayEnvelope, fromPeerId: String): IngestResult {
-        if (envelope.ttlRemaining <= 0) return IngestResult.Rejected("TTL exhausted")
+        envelope.boundsViolation(requireRelayable = true)?.let { return IngestResult.Rejected(it) }
+
         val payload = runCatching { ProtocolCodec.decodePayload(envelope.packet.payloadBytes) }
-            .getOrElse { return IngestResult.Rejected("Malformed payload: ${it.message}") }
-        if (payload.protocolVersion != PROTOCOL_VERSION) return IngestResult.Rejected("Unsupported protocol ${payload.protocolVersion}")
-        if (payload.channelId != CHANNEL_ID) return IngestResult.Rejected("Unknown channel")
-        if (payload.expiresAt <= clock()) return IngestResult.Rejected("Message expired")
-        if (payload.text.toByteArray(Charsets.UTF_8).size > MAX_MESSAGE_BYTES) return IngestResult.Rejected("Message too large")
-        if (!signer.verify(envelope.packet.payloadBytes, envelope.packet.signature, envelope.packet.originPublicKey))
+            .getOrElse { return IngestResult.Rejected("Malformed RQP2 payload: ${it.message}") }
+        if (payload.payloadVersion != PAYLOAD_VERSION) return IngestResult.Rejected("Unsupported payload version")
+        if (payload.expiresAt <= clock()) return IngestResult.Rejected("Packet expired")
+        if (payload.expiresAt <= payload.createdAt) return IngestResult.Rejected("Invalid packet timing")
+        val lifetime = runCatching { Math.subtractExact(payload.expiresAt, payload.createdAt) }
+            .getOrElse { return IngestResult.Rejected("Invalid packet timing") }
+        if (payload.relayPolicy == RelayPolicy.EPHEMERAL && lifetime > PROPAGATION_WINDOW_MS) {
+            return IngestResult.Rejected("Ephemeral lifetime exceeds 24 hours")
+        }
+        if (payload.originSequence <= 0) return IngestResult.Rejected("Invalid origin sequence")
+
+        if (!signer.verify(envelope.packet.payloadBytes, envelope.packet.signature, envelope.packet.originPublicKey)) {
             return IngestResult.Rejected("Invalid signature")
-        val expectedNode = fingerprintNodeId(envelope.packet.originPublicKey)
-        if (expectedNode != payload.originNodeId) return IngestResult.Rejected("Origin identity mismatch")
-        if (messages.find(payload.messageId.toString()) != null) return IngestResult.Duplicate(payload.messageId.toString())
-        val peer = peers.find(payload.originNodeId)
-        val originName = peer?.displayName ?: payload.originDisplayName.take(32).ifBlank { "Node ${payload.originNodeId.take(8)}" }
+        }
+        if (fingerprintNodeId(envelope.packet.originPublicKey) != payload.originNodeId) {
+            return IngestResult.Rejected("Origin identity mismatch")
+        }
+
+        val packetId = payload.packetId.toString()
+        if (packets.find(packetId) != null) return IngestResult.Duplicate(packetId)
+
         val forwarded = envelope.copy(
             ttlRemaining = envelope.ttlRemaining - 1,
             hopCount = envelope.hopCount + 1,
-            hopTrace = (envelope.hopTrace + signer.nodeId).distinct().take(32),
+            hopTrace = (envelope.hopTrace + signer.nodeId).distinct().take(MAX_HOP_TRACE),
         )
-        messages.insert(entity(payload, forwarded, originName, outgoing = false))
-        return IngestResult.Accepted(payload.messageId.toString())
+        val shouldProject = payload.kind == PacketKind.PUBLIC_TEXT && payload.audience == Audience.PublicChannel
+        val raw = packetEntity(payload, forwarded, projected = shouldProject, receivedAt = clock())
+        if (!packets.insert(raw)) return IngestResult.Duplicate(packetId)
+
+        if (!shouldProject) return IngestResult.StoredOnly(packetId)
+
+        val peer = peers.find(payload.originNodeId)
+        val originName = peer?.displayName
+            ?: payload.originDisplayName.take(32).ifBlank { "Node ${payload.originNodeId.take(8)}" }
+        conversations.insert(conversationEntity(payload, originName, outgoing = false, hopCount = forwarded.hopCount))
+        return IngestResult.Projected(packetId)
     }
 
     suspend fun onHello(profile: NodeProfile): Boolean {
-        if (profile.protocolVersion != PROTOCOL_VERSION || profile.nodeId != fingerprintNodeId(profile.publicKey)) return false
-        peers.upsert(profile); return true
+        if (profile.transportVersion != TRANSPORT_VERSION || profile.nodeId != fingerprintNodeId(profile.publicKey)) return false
+        peers.upsert(profile)
+        return true
     }
 
-    suspend fun inventory(): List<String> = messages.recentIds()
-    suspend fun requestedPackets(ids: List<String>): List<RelayEnvelope> = messages.findAll(ids).mapNotNull { entity ->
-        runCatching { ProtocolCodec.decodeEnvelope(entity.packetBytes) }.getOrNull()
+    suspend fun inventory(): List<String> = packets.inventoryIds()
+
+    suspend fun requestedPackets(ids: List<String>): List<RelayEnvelope> = packets.findAll(ids).mapNotNull { entity ->
+        if (!entity.relayEligible) return@mapNotNull null
+        if (entity.relayPolicy == RelayPolicy.EPHEMERAL && entity.expiresAt <= clock()) return@mapNotNull null
+        runCatching { ProtocolCodec.decodeEnvelope(entity.rawEnvelope) }.getOrNull()
     }
-    suspend fun missingIds(remoteIds: List<String>): List<String> = remoteIds.filter { messages.find(it) == null }
-    suspend fun acknowledged(messageId: String, peerId: String) = messages.markRelayed(messageId, peerId)
-    suspend fun cleanup() = messages.cleanup()
 
-    private fun entity(payload: ChatPayload, envelope: RelayEnvelope, name: String, outgoing: Boolean) = MessageEntity(
-        messageId = payload.messageId.toString(), channelId = payload.channelId, originNodeId = payload.originNodeId,
-        originName = name, originSequence = payload.originSequence, createdAt = payload.createdAt,
-        expiresAt = payload.expiresAt, text = payload.text, packetBytes = ProtocolCodec.encodeEnvelope(envelope),
-        ttlRemaining = envelope.ttlRemaining, hopCount = envelope.hopCount,
-        hopTrace = envelope.hopTrace.joinToString(","), outgoing = outgoing,
-    )
+    suspend fun missingIds(remoteIds: List<String>): List<String> = remoteIds.filter { packets.find(it) == null }
 
-    private fun fingerprintNodeId(publicKey: ByteArray): String = java.security.MessageDigest.getInstance("SHA-256")
+    suspend fun acknowledged(packetId: String, peerId: String) {
+        packets.markRelayed(packetId, peerId)
+        conversations.markRelayed(packetId)
+    }
+
+    suspend fun cleanup() {
+        packets.cleanup()
+        conversations.cleanup()
+    }
+
+    private fun packetEntity(
+        payload: PayloadV2,
+        envelope: RelayEnvelope,
+        projected: Boolean,
+        receivedAt: Long,
+    ): PacketEntity {
+        return PacketEntity(
+            packetId = payload.packetId.toString(), kind = payload.kind,
+            audienceType = payload.audience.type, audienceId = payload.audience.id, originNodeId = payload.originNodeId,
+            originName = payload.originDisplayName, originSequence = payload.originSequence,
+            createdAt = payload.createdAt, expiresAt = payload.expiresAt,
+            relayPolicy = payload.relayPolicy, supersessionKey = supersessionKey(payload),
+            rawEnvelope = ProtocolCodec.encodeEnvelope(envelope), ttlRemaining = envelope.ttlRemaining,
+            hopCount = envelope.hopCount, hopTrace = envelope.hopTrace.joinToString(","),
+            relayEligible = envelope.ttlRemaining > 0,
+            projectionState = if (projected) ProjectionState.PROJECTED else ProjectionState.STORED_ONLY,
+            receivedAt = receivedAt,
+        )
+    }
+
+    private fun conversationEntity(
+        payload: PayloadV2,
+        originName: String,
+        outgoing: Boolean,
+        hopCount: Int,
+    ): ConversationMessageEntity {
+        val body = payload.body as PublicTextBody
+        return ConversationMessageEntity(
+            messageId = payload.packetId.toString(), conversationId = CHANNEL_ID,
+            kind = payload.kind, audienceType = AudienceType.PUBLIC_CHANNEL, audienceId = CHANNEL_ID,
+            originNodeId = payload.originNodeId, originName = originName,
+            originSequence = payload.originSequence, createdAt = payload.createdAt,
+            expiresAt = payload.expiresAt, text = body.text, outgoing = outgoing, hopCount = hopCount,
+        )
+    }
+
+    private fun supersessionKey(payload: PayloadV2): String? = when (val body = payload.body) {
+        is CircleMembershipSnapshotBody -> "circle-snapshot:${body.circleId}"
+        else -> null
+    }
+
+    private fun fingerprintNodeId(publicKey: ByteArray): String = MessageDigest.getInstance("SHA-256")
         .digest(publicKey).joinToString("") { "%02x".format(it) }.take(32)
 }

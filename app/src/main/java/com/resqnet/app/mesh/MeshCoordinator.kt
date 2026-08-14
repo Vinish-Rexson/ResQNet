@@ -49,8 +49,9 @@ class MeshCoordinator(
             }
             is MeshFrame.Request -> router.requestedPackets(frame.messageIds).forEach { transport.send(peerId, MeshFrame.Packet(it)) }
             is MeshFrame.Packet -> when (val result = router.ingest(frame.envelope, peerId)) {
-                is IngestResult.Accepted -> { MeshRuntime.event("Received ${result.messageId.take(8)} via ${peerId.take(8)}"); transport.send(peerId, MeshFrame.Ack(result.messageId)) }
-                is IngestResult.Duplicate -> transport.send(peerId, MeshFrame.Ack(result.messageId))
+                is IngestResult.Projected -> { MeshRuntime.event("Received ${result.packetId.take(8)} via ${peerId.take(8)}"); transport.send(peerId, MeshFrame.Ack(result.packetId)) }
+                is IngestResult.StoredOnly -> { MeshRuntime.event("Stored ${result.packetId.take(8)} for relay"); transport.send(peerId, MeshFrame.Ack(result.packetId)) }
+                is IngestResult.Duplicate -> transport.send(peerId, MeshFrame.Ack(result.packetId))
                 is IngestResult.Rejected -> MeshRuntime.event("Rejected packet: ${result.reason}")
             }
             is MeshFrame.Ack -> { router.acknowledged(frame.messageId, peerId); MeshRuntime.event("Relayed ${frame.messageId.take(8)}") }
