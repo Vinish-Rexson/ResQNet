@@ -4,4 +4,61 @@
     <string name="mesh_notification_title">ResQNet mesh active</string>
     <string name="mesh_notification_text">Discovering peers and forwarding local messages</string>
     <string name="stop_mesh">Stop mesh</string>
+
+    <!-- Contacts / DM UI -->
+    <string name="tab_contacts">Contacts</string>
+    <string name="tab_requests">Requests</string>
+    <string name="tab_nearby">Nearby</string>
+    <string name="action_contacts">Contacts</string>
+    <string name="action_message">Message</string>
+    <string name="action_block">Block</string>
+    <string name="action_unblock">Unblock</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_accept">Accept</string>
+    <string name="action_decline">Decline</string>
+    <string name="action_add_contact">Add Contact</string>
+    <string name="label_trusted">Trusted</string>
+    <string name="label_blocked">Blocked</string>
+    <string name="label_pending_out">Request sent</string>
+    <string name="label_pending_in">Wants to connect</string>
+    <string name="label_nearby_peer">Nearby via BLE</string>
+    <string name="label_fingerprint">Fingerprint</string>
+    <string name="label_confirm_fingerprint">Confirm Fingerprint</string>
+    <string name="hint_message_dm">Message</string>
+    <string name="empty_contacts">No trusted contacts yet.\n\nAdd a contact from the Nearby tab when you can physically confirm your peer\'s fingerprint.</string>
+    <string name="empty_requests">No pending contact requests.</string>
+    <string name="empty_nearby">No peers discovered yet.\n\nStart the mesh to discover nearby devices.</string>
+    <string name="empty_dm">No messages yet.\n\nSend the first message.</string>
+    <string name="status_queued">Queued</string>
+    <string name="status_relayed">Relayed</string>
+    <string name="status_delivered">Delivered</string>
+
+    <!-- Circles UI -->
+    <string name="action_circles">Circles</string>
+    <string name="tab_active_circles">Active</string>
+    <string name="tab_circle_invites">Invites</string>
+    <string name="tab_archived_circles">Archived</string>
+    <string name="empty_active_circles">No active circles.\n\nCreate a circle to share status with trusted contacts.</string>
+    <string name="empty_circle_invites">No pending circle invitations.</string>
+    <string name="empty_archived_circles">No archived circles.</string>
+    <string name="action_create_circle">Create Circle</string>
+    <string name="title_create_circle">Create a new Circle</string>
+    <string name="hint_circle_name">Circle name</string>
+    <string name="action_create">Create</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_dissolve">Dissolve</string>
+    <string name="action_leave">Leave</string>
+    <string name="action_remove_member">Remove</string>
+    <string name="action_invite_member">Invite Member</string>
+    <string name="title_invite_member">Invite a trusted contact</string>
+    <string name="role_owner">Owner</string>
+    <string name="role_member">Member</string>
+    <string name="label_safe">Safe</string>
+    <string name="label_need_help">Need Help</string>
+    <string name="label_unknown">Unknown</string>
+    <string name="action_update_status">Update Status</string>
+    <string name="title_update_status">Update your safety status</string>
+    <string name="hint_status_note">Optional note (e.g. \"At the shelter\")</string>
+    <string name="action_mark_safe">Mark Safe</string>
+    <string name="action_mark_need_help">Mark Need Help</string>
 </resources>

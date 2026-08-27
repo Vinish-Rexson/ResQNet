@@ -48,6 +48,8 @@ class ChatActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.meshButton).setOnClickListener { startActivity(Intent(this, MeshControlActivity::class.java)) }
         findViewById<Button>(R.id.diagnosticsButton).setOnClickListener { startActivity(Intent(this, DiagnosticsActivity::class.java)) }
+        findViewById<Button>(R.id.contactsButton).setOnClickListener { startActivity(Intent(this, ContactsActivity::class.java)) }
+        findViewById<Button>(R.id.circlesButton).setOnClickListener { startActivity(Intent(this, CirclesActivity::class.java)) }
         lifecycleScope.launch { repeatOnLifecycle(Lifecycle.State.STARTED) {
             launch { model.messages.collect { messages ->
                 adapter.submitList(messages) { if (messages.isNotEmpty()) list.scrollToPosition(messages.lastIndex) }

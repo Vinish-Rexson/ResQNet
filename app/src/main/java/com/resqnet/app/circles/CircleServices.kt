@@ -23,6 +23,7 @@ class CircleMessageService(
     private val router: MessageRouter,
 ) {
     suspend fun send(circleId: String, text: String) = router.createCircleMessage(circleId, text)
+    fun observeMessages(circleId: String) = repository.observeMessages(circleId)
     suspend fun messages(circleId: String) = repository.messages(circleId)
     suspend fun deliveryProgress(messageId: String) = router.circleDeliveryProgress(messageId)
 }

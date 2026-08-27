@@ -162,7 +162,10 @@ data class CircleStatusBody(
     val status: SafetyStatus,
     val note: String?,
 ) : PacketBody { override val kind = PacketKind.CIRCLE_STATUS }
-data class CircleLeaveRequestBody(val circleId: String) : PacketBody { override val kind = PacketKind.CIRCLE_LEAVE_REQUEST }
+data class CircleLeaveRequestBody(
+    val circleId: String,
+    val membershipVersion: Long,
+) : PacketBody { override val kind = PacketKind.CIRCLE_LEAVE_REQUEST }
 
 data class PayloadV2(
     val packetId: UUID,

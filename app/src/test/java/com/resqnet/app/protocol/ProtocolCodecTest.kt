@@ -179,7 +179,7 @@ class ProtocolCodecTest {
             PacketKind.CIRCLE_STATUS -> Audience.Circle("circle") to CircleStatusBody(
                 "circle", 1, "node-a", SafetyStatus.SAFE, null,
             )
-            PacketKind.CIRCLE_LEAVE_REQUEST -> Audience.DirectNode("node-b") to CircleLeaveRequestBody("circle")
+            PacketKind.CIRCLE_LEAVE_REQUEST -> Audience.DirectNode("node-b") to CircleLeaveRequestBody("circle", 4)
         }
         return payload(kind, audience, body).copy(relayPolicy = relayPolicy)
     }

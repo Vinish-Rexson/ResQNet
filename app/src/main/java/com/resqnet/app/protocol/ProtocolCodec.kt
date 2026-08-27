@@ -220,7 +220,10 @@ object ProtocolCodec {
             writeBoundedString(body.subjectNodeId, MAX_ID_BYTES); writeByte(body.status.wireId)
             writeBoolean(body.note != null); body.note?.let { writeBoundedString(it, MAX_NOTE_BYTES) }
         }
-        is CircleLeaveRequestBody -> writeBoundedString(body.circleId, MAX_ID_BYTES)
+        is CircleLeaveRequestBody -> {
+            writeBoundedString(body.circleId, MAX_ID_BYTES)
+            writeLong(body.membershipVersion)
+        }
     }
 
     private fun DataInputStream.readBody(kind: PacketKind): PacketBody = when (kind) {
@@ -264,7 +267,7 @@ object ProtocolCodec {
             SafetyStatus.fromWireId(readUnsignedByte()),
             if (readBoolean()) readBoundedString(MAX_NOTE_BYTES) else null,
         )
-        PacketKind.CIRCLE_LEAVE_REQUEST -> CircleLeaveRequestBody(readBoundedString(MAX_ID_BYTES))
+        PacketKind.CIRCLE_LEAVE_REQUEST -> CircleLeaveRequestBody(readBoundedString(MAX_ID_BYTES), readLong())
     }
 
     private fun DataInputStream.readMemberCount(): Int = readInt().also {

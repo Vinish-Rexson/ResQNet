@@ -43,6 +43,7 @@ interface LocalProjectionRepository {
 interface PeerRepository {
     suspend fun upsert(profile: NodeProfile)
     suspend fun find(nodeId: String): PeerEntity?
+    fun observePeers(): kotlinx.coroutines.flow.Flow<List<PeerEntity>>
 }
 
 interface ContactRepository {
@@ -167,6 +168,7 @@ class RoomPeerRepository(
         ),
     )
     override suspend fun find(nodeId: String) = dao.peer(nodeId)
+    override fun observePeers() = dao.observePeers()
 }
 
 class RoomContactRepository(private val dao: MeshDao) : ContactRepository {

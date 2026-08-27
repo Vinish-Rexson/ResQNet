@@ -7,6 +7,8 @@
         </LinearLayout>
         <Button android:id="@+id/meshButton" style="@style/Widget.MaterialComponents.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mesh" />
         <Button android:id="@+id/diagnosticsButton" style="@style/Widget.MaterialComponents.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Logs" />
+        <Button android:id="@+id/contactsButton" style="@style/Widget.MaterialComponents.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/action_contacts" />
+        <Button android:id="@+id/circlesButton" style="@style/Widget.MaterialComponents.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/action_circles" />
     </LinearLayout>
     <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
         <androidx.recyclerview.widget.RecyclerView android:id="@+id/messageList" android:layout_width="match_parent" android:layout_height="match_parent" android:padding="12dp" android:clipToPadding="false" />

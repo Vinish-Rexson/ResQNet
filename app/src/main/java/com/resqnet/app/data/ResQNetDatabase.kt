@@ -7,8 +7,8 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.resqnet.app.circles.*
 
-const val RESQNET_DATABASE_VERSION = 4
-private val DESTRUCTIVE_RESET_FROM_VERSIONS = intArrayOf(1, 2, 3)
+const val RESQNET_DATABASE_VERSION = 5
+private val DESTRUCTIVE_RESET_FROM_VERSIONS = intArrayOf(1, 2, 3, 4)
 
 fun canDestructivelyResetFrom(version: Int): Boolean = version in DESTRUCTIVE_RESET_FROM_VERSIONS
 

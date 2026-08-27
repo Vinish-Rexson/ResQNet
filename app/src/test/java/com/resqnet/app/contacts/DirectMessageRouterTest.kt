@@ -327,6 +327,7 @@ class DirectMessageRouterTest {
     private class MemoryPeers : PeerRepository {
         override suspend fun upsert(profile: NodeProfile) = Unit
         override suspend fun find(nodeId: String): PeerEntity? = null
+        override fun observePeers(): Flow<List<PeerEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
     }
 
     private class JvmSigner : IdentitySigner {

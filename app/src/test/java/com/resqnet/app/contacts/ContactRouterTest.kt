@@ -284,6 +284,7 @@ class ContactRouterTest {
             )
         }
         override suspend fun find(nodeId: String) = values[nodeId]
+        override fun observePeers(): Flow<List<PeerEntity>> = kotlinx.coroutines.flow.flowOf(values.values.toList())
     }
 
     private class JvmSigner : IdentitySigner {

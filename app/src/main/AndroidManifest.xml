@@ -26,6 +26,8 @@
         <activity android:name=".ui.DiagnosticsActivity" />
         <activity android:name=".ui.MeshControlActivity" />
         <activity android:name=".ui.ChatActivity" />
+        <activity android:name=".ui.ContactsActivity" android:label="Contacts" />
+        <activity android:name=".ui.DirectConversationActivity" android:label="Direct Message" />
         <activity android:name=".ui.SetupActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -37,6 +39,13 @@
             android:name=".mesh.MeshService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+        <activity
+            android:name=".ui.CirclesActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.CircleDetailActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 
 </manifest>

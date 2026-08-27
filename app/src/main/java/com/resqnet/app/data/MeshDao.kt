@@ -43,6 +43,25 @@ interface MeshDao {
     @Query("SELECT * FROM circle_members WHERE circleId = :circleId AND membershipVersion = :membershipVersion ORDER BY role ASC, nodeId ASC")
     suspend fun circleMembers(circleId: String, membershipVersion: Long): List<CircleMemberEntity>
 
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM circle_members WHERE circleId = :circleId " +
+            "AND membershipVersion = :membershipVersion AND nodeId = :nodeId)",
+    )
+    suspend fun isCircleMember(circleId: String, membershipVersion: Long, nodeId: String): Boolean
+
+    @Query(
+        "SELECT COUNT(*) FROM circle_snapshots AS snapshot WHERE snapshot.circleId = :circleId " +
+            "AND snapshot.membershipVersion BETWEEN :fromVersion AND :throughVersion " +
+            "AND NOT EXISTS(SELECT 1 FROM circle_members AS member WHERE member.circleId = snapshot.circleId " +
+            "AND member.membershipVersion = snapshot.membershipVersion AND member.nodeId = :nodeId)",
+    )
+    suspend fun circleSnapshotsWithoutMember(
+        circleId: String,
+        nodeId: String,
+        fromVersion: Long,
+        throughVersion: Long,
+    ): Int
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertCircleMessage(message: CircleMessageEntity): Long
 
@@ -51,6 +70,9 @@ interface MeshDao {
 
     @Query("SELECT * FROM circle_messages WHERE circleId = :circleId ORDER BY createdAt ASC, originSequence ASC, messageId ASC")
     suspend fun circleMessages(circleId: String): List<CircleMessageEntity>
+
+    @Query("SELECT * FROM circle_messages WHERE circleId = :circleId ORDER BY createdAt ASC, originSequence ASC, messageId ASC")
+    fun observeCircleMessages(circleId: String): Flow<List<CircleMessageEntity>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertPendingCirclePacket(packet: PendingCirclePacketEntity): Long
@@ -194,6 +216,9 @@ interface MeshDao {
 
     @Query("SELECT * FROM peers WHERE nodeId = :nodeId")
     suspend fun peer(nodeId: String): PeerEntity?
+
+    @Query("SELECT * FROM peers ORDER BY lastSeenAt DESC")
+    fun observePeers(): Flow<List<PeerEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertDelivery(delivery: PeerDeliveryEntity)

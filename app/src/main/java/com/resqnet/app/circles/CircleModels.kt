@@ -28,6 +28,7 @@ data class CircleEntity(
     val currentMembershipVersion: Long,
     val localState: CircleLocalState,
     val leaveRequestPacketId: String?,
+    val leaveRequestMembershipVersion: Long?,
     val createdAt: Long,
     val updatedAt: Long,
 )

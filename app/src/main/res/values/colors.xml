@@ -11,9 +11,17 @@
     <color name="resq_primary_dark">#092925</color>
     <color name="resq_accent">#F2A93B</color>
     <color name="surface">#F5F7F5</color>
+    <color name="surface_card">#FFFFFF</color>
     <color name="bubble_incoming">#FFFFFFFF</color>
     <color name="bubble_outgoing">#D8EFE8</color>
     <color name="text_primary">#17211F</color>
     <color name="text_muted">#60706C</color>
     <color name="alert">#B3261E</color>
+    <color name="color_safe">#2E7D32</color>
+    <color name="color_need_help">#B71C1C</color>
+    <color name="color_pending">#E65100</color>
+    <color name="color_avatar_bg">#1B5E4A</color>
+    <color name="color_divider">#E0E7E5</color>
+    <color name="color_delivered">#1976D2</color>
+    <color name="color_unknown">#9E9E9E</color>
 </resources>

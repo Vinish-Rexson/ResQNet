@@ -45,7 +45,8 @@ class MessageRouter(
     private val contactDirect = ContactDirectHandler(
         this, packets, conversations, peers, contacts, receipts, discoveryFreshnessWindowMs,
     )
-    private val circleHandler = CircleHandler(this, packets, contacts, circles)
+    private val circleContent = CircleContentHandler(this, packets, circles)
+    private val circleLifecycle = CircleLifecycleHandler(this, packets, contacts, circles, circleContent)
     override val localNodeId: String get() = signer.nodeId
     override fun localDisplayName() = displayName()
     override fun now() = clock()
@@ -79,20 +80,20 @@ class MessageRouter(
     suspend fun removeContact(nodeId: String) = contactDirect.removeContact(nodeId)
     suspend fun blockContact(nodeId: String) = contactDirect.blockContact(nodeId)
     suspend fun unblockContact(nodeId: String) = contactDirect.unblockContact(nodeId)
-    suspend fun createCircle(name: String) = circleHandler.createCircle(name)
-    suspend fun inviteToCircle(circleId: String, nodeId: String) = circleHandler.invite(circleId, nodeId)
-    suspend fun acceptCircleInvite(inviteId: String) = circleHandler.acceptInvite(inviteId)
-    suspend fun declineCircleInvite(inviteId: String) = circleHandler.declineInvite(inviteId)
-    suspend fun createCircleMessage(circleId: String, text: String) = circleHandler.createMessage(circleId, text)
+    suspend fun createCircle(name: String) = circleLifecycle.createCircle(name)
+    suspend fun inviteToCircle(circleId: String, nodeId: String) = circleLifecycle.invite(circleId, nodeId)
+    suspend fun acceptCircleInvite(inviteId: String) = circleLifecycle.acceptInvite(inviteId)
+    suspend fun declineCircleInvite(inviteId: String) = circleLifecycle.declineInvite(inviteId)
+    suspend fun createCircleMessage(circleId: String, text: String) = circleContent.createMessage(circleId, text)
     suspend fun updateCircleStatus(circleId: String, status: SafetyStatus, note: String?) =
-        circleHandler.updateStatus(circleId, status, note)
+        circleContent.updateStatus(circleId, status, note)
     suspend fun effectiveCircleStatus(circleId: String, memberNodeId: String) =
-        circleHandler.effectiveStatus(circleId, memberNodeId)
-    suspend fun circleDeliveryProgress(messageId: String) = circleHandler.deliveryProgress(messageId)
-    suspend fun leaveCircle(circleId: String) = circleHandler.leave(circleId)
-    suspend fun renameCircle(circleId: String, name: String) = circleHandler.rename(circleId, name)
-    suspend fun removeCircleMember(circleId: String, nodeId: String) = circleHandler.removeMember(circleId, nodeId)
-    suspend fun dissolveCircle(circleId: String) = circleHandler.dissolve(circleId)
+        circleContent.effectiveStatus(circleId, memberNodeId)
+    suspend fun circleDeliveryProgress(messageId: String) = circleContent.deliveryProgress(messageId)
+    suspend fun leaveCircle(circleId: String) = circleLifecycle.leave(circleId)
+    suspend fun renameCircle(circleId: String, name: String) = circleLifecycle.rename(circleId, name)
+    suspend fun removeCircleMember(circleId: String, nodeId: String) = circleLifecycle.removeMember(circleId, nodeId)
+    suspend fun dissolveCircle(circleId: String) = circleLifecycle.dissolve(circleId)
 
     suspend fun ingest(envelope: RelayEnvelope, fromPeerId: String): IngestResult {
         envelope.boundsViolation(requireRelayable = true)?.let { return IngestResult.Rejected(it) }
@@ -230,7 +231,11 @@ class MessageRouter(
             return IngestResult.Duplicate(existing.packetId)
         }
         if (payload.kind == PacketKind.CIRCLE_TEXT && existing.projectionState == ProjectionState.PROJECTED) {
-            circleHandler.recoverReceipt(payload)
+            circleContent.recoverReceipt(payload)
+            return IngestResult.Duplicate(existing.packetId)
+        }
+        if (payload.kind == PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT && existing.projectionState == ProjectionState.PROJECTED) {
+            circleLifecycle.recoverSnapshot(payload)
             return IngestResult.Duplicate(existing.packetId)
         }
         val canRetryProjection = existing.projectionState == ProjectionState.STORED_ONLY
@@ -248,12 +253,13 @@ class MessageRouter(
             PacketKind.CIRCLE_INVITE_ACCEPT,
             PacketKind.CIRCLE_INVITE_DECLINE,
             PacketKind.CIRCLE_MEMBERSHIP_SNAPSHOT,
+            PacketKind.CIRCLE_LEAVE_REQUEST,
+            -> circleLifecycle.project(payload)
             PacketKind.CIRCLE_TEXT,
             PacketKind.CIRCLE_STATUS,
-            PacketKind.CIRCLE_LEAVE_REQUEST,
-            -> circleHandler.project(payload, hopCount)
+            -> circleContent.project(payload, hopCount)
             PacketKind.DELIVERY_RECEIPT -> if ((payload.body as DeliveryReceiptBody).circleId != null) {
-                circleHandler.project(payload, hopCount)
+                circleContent.project(payload, hopCount)
             } else {
                 contactDirect.project(payload, originPublicKey, hopCount)
             }
