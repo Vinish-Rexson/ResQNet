@@ -52,12 +52,13 @@ class ContactsActivity : AppCompatActivity() {
             buildTabView(nearbyAdapter, getString(R.string.empty_nearby)),
         )
 
+        pager.offscreenPageLimit = 3
         pager.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-            // We override getItemCount so ViewPager2 knows the tab count,
-            // but use a simple ViewHolder approach to embed pre-built views.
             override fun getItemCount() = tabViews.size
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-                return object : RecyclerView.ViewHolder(tabViews[viewType]) {}
+                val v = tabViews[viewType]
+                (v.parent as? ViewGroup)?.removeView(v)
+                return object : RecyclerView.ViewHolder(v) {}
             }
             override fun getItemViewType(position: Int) = position
             override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) = Unit

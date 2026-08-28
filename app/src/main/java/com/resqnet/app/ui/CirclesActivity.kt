@@ -50,10 +50,13 @@ class CirclesActivity : AppCompatActivity() {
             buildTabView(archivedAdapter, getString(R.string.empty_archived_circles)),
         )
 
+        pager.offscreenPageLimit = 3
         pager.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
             override fun getItemCount() = tabViews.size
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-                return object : RecyclerView.ViewHolder(tabViews[viewType]) {}
+                val v = tabViews[viewType]
+                (v.parent as? ViewGroup)?.removeView(v)
+                return object : RecyclerView.ViewHolder(v) {}
             }
             override fun getItemViewType(position: Int) = position
             override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) = Unit

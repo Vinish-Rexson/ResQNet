@@ -30,38 +30,41 @@ class ContactsViewModel(application: Application) : AndroidViewModel(application
         }
         val pending = contacts.filter { it.state.isPending }
         val contactNodeIds = contacts.map { it.nodeId }.toSet()
-        // Nearby tab: peers discovered via BLE that are not yet contacts
-        val nearby = peers.filter { it.nodeId !in contactNodeIds }
+        val now = System.currentTimeMillis()
+        // Nearby tab: peers discovered via BLE in the last 2 minutes that are not yet contacts
+        val nearby = peers.filter { 
+            it.nodeId !in contactNodeIds && (now - it.lastSeenAt) < 2L * 60 * 1000 
+        }
         ContactsUiState(trustedAndBlocked, pending, nearby)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ContactsUiState())
 
     fun acceptContact(nodeId: String, onResult: (String?) -> Unit) = viewModelScope.launch {
         runCatching { app.contactService.accept(nodeId) }
-            .onSuccess { onResult(null) }
+            .onSuccess { com.resqnet.app.mesh.MeshService.command(app, com.resqnet.app.mesh.MeshService.ACTION_SYNC); onResult(null) }
             .onFailure { onResult(it.message ?: "Could not accept contact") }
     }
 
     fun declineContact(nodeId: String, onResult: (String?) -> Unit) = viewModelScope.launch {
         runCatching { app.contactService.decline(nodeId) }
-            .onSuccess { onResult(null) }
+            .onSuccess { com.resqnet.app.mesh.MeshService.command(app, com.resqnet.app.mesh.MeshService.ACTION_SYNC); onResult(null) }
             .onFailure { onResult(it.message ?: "Could not decline contact") }
     }
 
     fun removeContact(nodeId: String, onResult: (String?) -> Unit) = viewModelScope.launch {
         runCatching { app.contactService.remove(nodeId) }
-            .onSuccess { onResult(null) }
+            .onSuccess { com.resqnet.app.mesh.MeshService.command(app, com.resqnet.app.mesh.MeshService.ACTION_SYNC); onResult(null) }
             .onFailure { onResult(it.message ?: "Could not remove contact") }
     }
 
     fun blockContact(nodeId: String, onResult: (String?) -> Unit) = viewModelScope.launch {
         runCatching { app.contactService.block(nodeId) }
-            .onSuccess { onResult(null) }
+            .onSuccess { com.resqnet.app.mesh.MeshService.command(app, com.resqnet.app.mesh.MeshService.ACTION_SYNC); onResult(null) }
             .onFailure { onResult(it.message ?: "Could not block contact") }
     }
 
     fun unblockContact(nodeId: String, onResult: (String?) -> Unit) = viewModelScope.launch {
         runCatching { app.contactService.unblock(nodeId) }
-            .onSuccess { onResult(null) }
+            .onSuccess { com.resqnet.app.mesh.MeshService.command(app, com.resqnet.app.mesh.MeshService.ACTION_SYNC); onResult(null) }
             .onFailure { onResult(it.message ?: "Could not unblock contact") }
     }
 
@@ -73,7 +76,7 @@ class ContactsViewModel(application: Application) : AndroidViewModel(application
     fun requestContact(nodeId: String, fingerprint: String, onResult: (String?) -> Unit) =
         viewModelScope.launch {
             runCatching { app.contactService.request(nodeId, fingerprint) }
-                .onSuccess { onResult(null) }
+                .onSuccess { com.resqnet.app.mesh.MeshService.command(app, com.resqnet.app.mesh.MeshService.ACTION_SYNC); onResult(null) }
                 .onFailure { onResult(it.message ?: "Could not send contact request") }
         }
 }

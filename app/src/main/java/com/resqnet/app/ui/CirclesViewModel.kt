@@ -38,7 +38,7 @@ class CirclesViewModel(application: Application) : AndroidViewModel(application)
 
     fun createCircle(name: String, onResult: (String?) -> Unit) = viewModelScope.launch {
         runCatching { app.circleService.create(name) }
-            .onSuccess { onResult(null) }
+            .onSuccess { com.resqnet.app.mesh.MeshService.command(app, com.resqnet.app.mesh.MeshService.ACTION_SYNC); onResult(null) }
             .onFailure { onResult(it.message ?: "Failed to create circle") }
     }
 
@@ -49,7 +49,7 @@ class CirclesViewModel(application: Application) : AndroidViewModel(application)
                 ?: throw IllegalStateException("No pending invitation found for this circle")
             app.circleService.accept(invite.inviteId)
         }
-            .onSuccess { onResult(null) }
+            .onSuccess { com.resqnet.app.mesh.MeshService.command(app, com.resqnet.app.mesh.MeshService.ACTION_SYNC); onResult(null) }
             .onFailure { onResult(it.message ?: "Failed to accept invite") }
     }
 
@@ -60,7 +60,7 @@ class CirclesViewModel(application: Application) : AndroidViewModel(application)
                 ?: throw IllegalStateException("No pending invitation found for this circle")
             app.circleService.decline(invite.inviteId)
         }
-            .onSuccess { onResult(null) }
+            .onSuccess { com.resqnet.app.mesh.MeshService.command(app, com.resqnet.app.mesh.MeshService.ACTION_SYNC); onResult(null) }
             .onFailure { onResult(it.message ?: "Failed to decline invite") }
     }
 }

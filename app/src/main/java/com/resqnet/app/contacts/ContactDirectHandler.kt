@@ -166,7 +166,11 @@ internal class ContactDirectHandler(
         val current = currentContact(payload.originNodeId)
         if (current?.state == ContactState.BLOCKED) return port.suppress(packetId)
         val contact = when (current?.state) {
-            ContactState.TRUSTED, ContactState.PENDING_INCOMING -> current
+            ContactState.TRUSTED -> current
+            ContactState.PENDING_INCOMING -> current.copy(
+                incomingRequestId = packetId,
+                incomingRequestExpiresAt = payload.expiresAt, updatedAt = port.now(),
+            )
             ContactState.PENDING_OUTGOING -> current.copy(
                 state = ContactState.PENDING_INCOMING, incomingRequestId = packetId,
                 incomingRequestExpiresAt = payload.expiresAt, updatedAt = port.now(),
@@ -185,12 +189,22 @@ internal class ContactDirectHandler(
         val packetId = payload.packetId.toString()
         val contactStore = contacts ?: return IngestResult.StoredOnly(packetId)
         if ((payload.audience as Audience.DirectNode).nodeId != port.localNodeId) return IngestResult.StoredOnly(packetId)
-        val current = currentContact(payload.originNodeId) ?: return port.suppress(packetId)
+        val current = currentContact(payload.originNodeId)
+        if (current == null) {
+            com.resqnet.app.mesh.MeshRuntime.event("Accept suppressed: no current contact")
+            return port.suppress(packetId)
+        }
         val requestId = (payload.body as ContactAcceptBody).requestId
-        if (
-            current.state == ContactState.BLOCKED || current.outgoingRequestId != requestId ||
-            (current.outgoingRequestExpiresAt ?: Long.MIN_VALUE) <= port.now()
-        ) {
+        if (current.state == ContactState.BLOCKED) {
+            com.resqnet.app.mesh.MeshRuntime.event("Accept suppressed: blocked")
+            return port.suppress(packetId)
+        }
+        if (current.outgoingRequestId != requestId) {
+            com.resqnet.app.mesh.MeshRuntime.event("Accept suppressed: id mismatch. current=${current.outgoingRequestId}, req=$requestId")
+            return port.suppress(packetId)
+        }
+        if ((current.outgoingRequestExpiresAt ?: Long.MIN_VALUE) <= port.now()) {
+            com.resqnet.app.mesh.MeshRuntime.event("Accept suppressed: expired")
             return port.suppress(packetId)
         }
         contactStore.upsert(current.copy(
@@ -199,6 +213,7 @@ internal class ContactDirectHandler(
             incomingRequestId = null, incomingRequestExpiresAt = null,
             updatedAt = port.now(),
         ))
+        com.resqnet.app.mesh.MeshRuntime.event("Accept projected successfully")
         return port.promoteProcessed(packetId)
     }
 
