@@ -181,6 +181,7 @@ class CirclesActivity : AppCompatActivity() {
             holder.name.text = circle.name
             holder.state.text = when(circle.localState) {
                 CircleLocalState.ACTIVE -> "Active"
+                CircleLocalState.OWNER_ACTIVE -> "Active (Owner)"
                 CircleLocalState.LEAVE_PENDING -> "Leaving..."
                 CircleLocalState.ARCHIVED_DISSOLVED -> "Dissolved"
                 CircleLocalState.ARCHIVED_REMOVED -> "Removed"

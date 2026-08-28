@@ -15,25 +15,32 @@
 
         <com.google.android.material.appbar.AppBarLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:background="@color/surface_card"
+            app:elevation="0dp">
             <androidx.appcompat.widget.Toolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
-                android:background="@color/resq_primary"
-                app:titleTextColor="@color/white" />
+                android:background="@color/surface_card"
+                app:titleTextColor="@color/text_primary"
+                app:navigationIconTint="@color/text_primary" />
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/color_divider" />
         </com.google.android.material.appbar.AppBarLayout>
 
-        <!-- Status Panel -->
+        <!-- Status Panel — white card -->
         <LinearLayout
             android:id="@+id/statusPanel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:padding="12dp"
-            android:background="@color/white"
-            android:gravity="center_vertical"
-            android:elevation="4dp">
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="12dp"
+            android:background="@color/surface_card"
+            android:gravity="center_vertical">
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -44,7 +51,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="My Status"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.08"
                     android:textColor="@color/text_muted" />
                 <TextView
                     android:id="@+id/myStatusText"
@@ -58,8 +67,8 @@
                     android:id="@+id/myStatusNote"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textSize="14sp"
-                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_muted"
                     android:visibility="gone" />
             </LinearLayout>
 
@@ -67,9 +76,18 @@
                 android:id="@+id/btnUpdateStatus"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/action_update_status" />
+                android:layout_height="36dp"
+                android:text="@string/action_update_status"
+                android:textSize="12sp"
+                app:strokeColor="@color/text_primary"
+                android:textColor="@color/text_primary"
+                app:cornerRadius="18dp" />
         </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/color_divider" />
 
         <!-- Chat Area -->
         <FrameLayout
@@ -81,7 +99,7 @@
                 android:id="@+id/messageList"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:padding="12dp"
+                android:padding="16dp"
                 android:clipToPadding="false" />
 
             <TextView
@@ -91,23 +109,30 @@
                 android:layout_gravity="center"
                 android:text="No messages yet in this circle."
                 android:textColor="@color/text_muted"
+                android:textSize="15sp"
                 android:visibility="gone" />
         </FrameLayout>
 
-        <!-- Input Area (similar to DM/Chat) -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/color_divider" />
+
+        <!-- Input Area -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="12dp"
-            android:background="@color/surface_card"
-            android:elevation="8dp">
+            android:paddingHorizontal="12dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:background="@color/surface_card">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="bottom">
+                android:gravity="center_vertical">
 
                 <EditText
                     android:id="@+id/chatInput"
@@ -115,17 +140,23 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:hint="@string/hint_message_dm"
-                    android:minHeight="48dp"
+                    android:minHeight="44dp"
                     android:maxLines="5"
-                    android:background="@android:color/transparent"
-                    android:inputType="textMultiLine|textCapSentences" />
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="10dp"
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:textSize="15sp"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_muted" />
 
                 <Button
                     android:id="@+id/btnSend"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="48dp"
-                    android:text="Send" />
+                    android:layout_width="80dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="10dp"
+                    android:text="Send"
+                    android:textSize="14sp" />
             </LinearLayout>
 
             <TextView
@@ -134,7 +165,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="0 / 500 bytes"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textColor="@color/text_muted" />
         </LinearLayout>
 
@@ -146,7 +177,7 @@
         android:layout_width="300dp"
         android:layout_height="match_parent"
         android:layout_gravity="end"
-        android:background="@color/white">
+        android:background="@color/surface_card">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -156,12 +187,17 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="16dp"
+                android:padding="20dp"
                 android:text="Circle Members"
-                android:textSize="18sp"
+                android:textSize="16sp"
                 android:textStyle="bold"
-                android:background="@color/resq_primary"
-                android:textColor="@color/white" />
+                android:background="@color/surface_card"
+                android:textColor="@color/text_primary" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/color_divider" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/memberList"
@@ -169,13 +205,20 @@
                 android:layout_height="0dp"
                 android:layout_weight="1" />
 
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/color_divider" />
+
             <Button
                 android:id="@+id/btnInviteMember"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_margin="8dp"
+                android:layout_margin="12dp"
                 android:text="@string/action_invite_member"
+                app:strokeColor="@color/text_primary"
+                android:textColor="@color/text_primary"
                 android:visibility="gone" />
 
             <Button
@@ -183,7 +226,9 @@
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_margin="16dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
+                android:layout_marginBottom="16dp"
                 android:text="@string/action_leave"
                 android:textColor="@color/alert"
                 app:strokeColor="@color/alert" />

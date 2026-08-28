@@ -61,14 +61,13 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
                 android:textSize="12sp"
-                android:textColor="@color/color_pending" />
+                android:textColor="@color/text_muted" />
 
         </LinearLayout>
 
         <!-- Accept / Decline for incoming; Cancel for outgoing -->
         <Button
             android:id="@+id/btnAccept"
-            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="wrap_content"
             android:layout_height="36dp"
             android:text="@string/action_accept"
@@ -85,6 +84,8 @@
             android:layout_marginStart="6dp"
             android:text="@string/action_decline"
             android:textSize="13sp"
+            android:textColor="@color/text_primary"
+            app:strokeColor="@color/text_primary"
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
             android:visibility="gone" />

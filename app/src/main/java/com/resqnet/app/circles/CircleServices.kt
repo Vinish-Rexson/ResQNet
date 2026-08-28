@@ -38,4 +38,5 @@ class CircleStatusService(
         router.effectiveCircleStatus(circleId, memberNodeId)
     suspend fun history(circleId: String, memberNodeId: String) =
         repository.statusHistory(circleId, memberNodeId)
+    fun observeStatuses(circleId: String) = repository.observeStatuses(circleId)
 }

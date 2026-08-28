@@ -101,6 +101,9 @@ interface MeshDao {
     @Query("SELECT * FROM circle_status_events WHERE circleId = :circleId AND memberNodeId = :memberNodeId ORDER BY originSequence DESC, packetId DESC")
     suspend fun circleStatusHistory(circleId: String, memberNodeId: String): List<CircleStatusEventEntity>
 
+    @Query("SELECT * FROM circle_status_events WHERE circleId = :circleId ORDER BY originSequence ASC, packetId ASC")
+    fun observeCircleStatuses(circleId: String): Flow<List<CircleStatusEventEntity>>
+
     @Query("SELECT * FROM contacts ORDER BY displayName COLLATE NOCASE ASC, nodeId ASC")
     fun observeContacts(): Flow<List<ContactEntity>>
 

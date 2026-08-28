@@ -32,6 +32,8 @@ class CircleDetailActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_CIRCLE_ID = "circle_id"
+        private const val MENU_MEMBERS = 1
+        private const val MENU_RENAME = 2
     }
 
     private val model by viewModels<CircleDetailViewModel>()
@@ -157,7 +159,6 @@ class CircleDetailActivity : AppCompatActivity() {
                     
                     memberAdapter.isOwner = isOwner
                     memberAdapter.localNodeId = (application as ResQNetApplication).signer.nodeId
-                    memberAdapter.statuses = state.memberStatuses
                     memberAdapter.submitList(state.members)
                     
                     updateStatusPanel(state.localStatus)
@@ -167,27 +168,58 @@ class CircleDetailActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menu.add(0, 1, 0, "Members").apply {
+        menu.add(0, MENU_MEMBERS, 0, "Members").apply {
             setIcon(R.drawable.ic_more_vert)
             setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        }
+        menu.add(0, MENU_RENAME, 1, "Rename circle").apply {
+            setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         }
         return true
     }
 
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        val isOwner = model.uiState.value.circle?.ownerNodeId == (application as ResQNetApplication).signer.nodeId
+        menu.findItem(MENU_RENAME)?.isVisible = isOwner
+        return super.onPrepareOptionsMenu(menu)
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == android.R.id.home) {
-            onBackPressedDispatcher.onBackPressed()
-            return true
-        }
-        if (item.itemId == 1) {
-            if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
-                drawerLayout.closeDrawer(GravityCompat.END)
-            } else {
-                drawerLayout.openDrawer(GravityCompat.END)
+        return when (item.itemId) {
+            android.R.id.home -> { onBackPressedDispatcher.onBackPressed(); true }
+            MENU_MEMBERS -> {
+                if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
+                    drawerLayout.closeDrawer(GravityCompat.END)
+                } else {
+                    drawerLayout.openDrawer(GravityCompat.END)
+                }
+                true
             }
-            return true
+            MENU_RENAME -> { showRenameDialog(); true }
+            else -> super.onOptionsItemSelected(item)
         }
-        return super.onOptionsItemSelected(item)
+    }
+
+    private fun showRenameDialog() {
+        val input = EditText(this).apply {
+            hint = "New circle name"
+            setText(model.uiState.value.circle?.name ?: "")
+            setPadding(56, 24, 56, 8)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Rename circle")
+            .setView(input)
+            .setPositiveButton("Rename") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isNotEmpty()) {
+                    model.rename(name) { err ->
+                        if (err != null) showSnack(err) else supportActionBar?.title = name
+                    }
+                }
+            }
+            .setNegativeButton(R.string.action_cancel, null)
+            .show()
     }
 
     private fun showSnack(msg: String) = Snackbar.make(drawerLayout, msg, Snackbar.LENGTH_LONG).show()
@@ -217,19 +249,18 @@ class CircleDetailActivity : AppCompatActivity() {
     }
 
     private fun showUpdateStatusDialog() {
-        val view = layoutInflater.inflate(R.layout.fragment_contact_tab, null) // reuse just for context if needed, wait, better programmatically
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 24)
+            setPadding(56, 32, 56, 16)
         }
         val rg = RadioGroup(this)
         val rbSafe = RadioButton(this).apply { text = getString(R.string.label_safe) }
         val rbNeedHelp = RadioButton(this).apply { text = getString(R.string.label_need_help) }
         val rbUnknown = RadioButton(this).apply { text = getString(R.string.label_unknown) }
         rg.addView(rbSafe); rg.addView(rbNeedHelp); rg.addView(rbUnknown)
-        
+
         val currentStatus = model.uiState.value.localStatus?.status ?: SafetyStatus.UNKNOWN
-        when(currentStatus) {
+        when (currentStatus) {
             SafetyStatus.SAFE -> rbSafe.isChecked = true
             SafetyStatus.NEED_HELP -> rbNeedHelp.isChecked = true
             SafetyStatus.UNKNOWN -> rbUnknown.isChecked = true
@@ -238,8 +269,9 @@ class CircleDetailActivity : AppCompatActivity() {
         val noteInput = EditText(this).apply {
             hint = getString(R.string.hint_status_note)
             setText(model.uiState.value.localStatus?.note)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
         }
-        
+
         layout.addView(rg)
         layout.addView(noteInput)
 
@@ -247,7 +279,7 @@ class CircleDetailActivity : AppCompatActivity() {
             .setTitle(R.string.title_update_status)
             .setView(layout)
             .setPositiveButton("Update") { _, _ ->
-                val newStatus = when(rg.checkedRadioButtonId) {
+                val newStatus = when (rg.checkedRadioButtonId) {
                     rbSafe.id -> SafetyStatus.SAFE
                     rbNeedHelp.id -> SafetyStatus.NEED_HELP
                     else -> SafetyStatus.UNKNOWN
@@ -309,21 +341,34 @@ class CircleDetailActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val msg = getItem(position)
             val isOutgoing = msg.originNodeId == (application as ResQNetApplication).signer.nodeId
-            
+
             val params = holder.bubble.layoutParams as FrameLayout.LayoutParams
             params.gravity = if (isOutgoing) Gravity.END else Gravity.START
             holder.bubble.layoutParams = params
             holder.bubble.setBackgroundResource(
                 if (isOutgoing) R.drawable.bg_message_outgoing else R.drawable.bg_message_incoming
             )
-            
+
+            // Text colours flip for outgoing (dark bubble)
+            val textColor = if (isOutgoing) getColor(R.color.white) else getColor(R.color.text_primary)
+            val metaColor = if (isOutgoing) 0x99FFFFFF.toInt() else getColor(R.color.text_muted)
+            holder.author.setTextColor(textColor)
+            holder.body.setTextColor(textColor)
+            holder.meta.setTextColor(metaColor)
+
             holder.author.text = if (isOutgoing) "You" else msg.originName
             holder.body.text = msg.text
-            val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.createdAt))
-            
-            // For circles, we'd need progress. We don't have progress directly in entity. Just show time for now.
-            // If we want progress, we should fetch it via service or flow.
-            holder.meta.text = time
+            val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(msg.createdAt))
+
+            // Show delivery progress for outgoing messages
+            val meta = if (isOutgoing) {
+                val progress = model.uiState.value.deliveryProgress[msg.messageId]
+                if (progress != null && progress.possible > 0) "$time · ${progress.delivered}/${progress.possible}"
+                else time
+            } else {
+                if (msg.hopCount > 0) "$time · ${msg.hopCount} hops" else time
+            }
+            holder.meta.text = meta
         }
     }
 
@@ -335,7 +380,6 @@ class CircleDetailActivity : AppCompatActivity() {
     ) {
         var isOwner = false
         var localNodeId = ""
-        var statuses: Map<String, CircleStatusEventEntity> = emptyMap()
         var onRemove: (MemberUiModel) -> Unit = {}
 
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
@@ -361,7 +405,7 @@ class CircleDetailActivity : AppCompatActivity() {
             val isMemberOwner = member.nodeId == owner
             holder.role.text = if (isMemberOwner) "Owner" else "Member"
             
-            val memStatus = statuses[member.nodeId]
+            val memStatus = uiModel.status
             if (memStatus == null) {
                 holder.status.text = "Unknown"
                 holder.status.setTextColor(getColor(R.color.color_unknown))

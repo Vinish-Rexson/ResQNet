@@ -6,20 +6,22 @@
     android:layout_height="match_parent"
     android:background="@color/surface">
 
-    <!-- Top AppBar -->
+    <!-- Top AppBar — white -->
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:background="@color/surface_card"
+        app:elevation="0dp">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/resq_primary"
+            android:background="@color/surface_card"
             app:title="ResQNet"
-            app:titleTextColor="@color/white"
-            app:subtitleTextColor="#AAFFFFFF"
+            app:titleTextColor="@color/text_primary"
+            app:subtitleTextColor="@color/text_muted"
             app:titleTextAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
 
     </com.google.android.material.appbar.AppBarLayout>
@@ -37,17 +39,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:padding="12dp"
-            android:background="@color/white"
-            android:gravity="center_vertical"
-            android:elevation="1dp">
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="10dp"
+            android:background="@color/surface_card"
+            android:gravity="center_vertical">
 
             <View
                 android:id="@+id/statusDot"
-                android:layout_width="10dp"
-                android:layout_height="10dp"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
                 android:background="@drawable/bg_status_dot"
-                android:layout_marginEnd="8dp" />
+                android:layout_marginEnd="10dp" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -60,7 +62,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Mesh stopped"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textStyle="bold"
                     android:textColor="@color/text_primary" />
 
@@ -77,13 +79,20 @@
                 android:id="@+id/meshButton"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="36dp"
                 android:text="Manage"
                 android:textSize="12sp"
-                app:strokeColor="@color/resq_primary"
-                android:textColor="@color/resq_primary" />
+                app:strokeColor="@color/text_primary"
+                android:textColor="@color/text_primary"
+                app:cornerRadius="18dp" />
 
         </LinearLayout>
+
+        <!-- Divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/color_divider" />
 
         <!-- Messages List -->
         <FrameLayout
@@ -95,7 +104,7 @@
                 android:id="@+id/messageList"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:padding="12dp"
+                android:padding="16dp"
                 android:clipToPadding="false" />
 
             <LinearLayout
@@ -118,7 +127,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:text="Emergency Channel"
-                    android:textSize="18sp"
+                    android:textSize="20sp"
                     android:textStyle="bold"
                     android:textColor="@color/text_primary" />
 
@@ -135,17 +144,22 @@
             </LinearLayout>
         </FrameLayout>
 
+        <!-- Divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/color_divider" />
+
         <!-- Input Area -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@color/white"
-            android:elevation="8dp"
+            android:background="@color/surface_card"
             android:paddingStart="16dp"
-            android:paddingEnd="8dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp">
+            android:paddingEnd="12dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -161,18 +175,22 @@
                     android:hint="Message everyone nearby…"
                     android:maxLines="5"
                     android:inputType="textCapSentences|textMultiLine"
-                    android:background="@android:color/transparent"
+                    android:background="@drawable/bg_input_field"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="10dp"
                     android:textSize="15sp"
                     android:textColor="@color/text_primary"
-                    android:paddingVertical="8dp" />
+                    android:textColorHint="@color/text_muted" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/sendButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="48dp"
+                    android:layout_width="80dp"
+                    android:layout_height="44dp"
                     android:text="Send"
-                    android:layout_marginStart="8dp"
-                    app:backgroundTint="@color/resq_primary" />
+                    android:layout_marginStart="10dp"
+                    android:textSize="14sp"
+                    app:backgroundTint="@color/resq_primary"
+                    app:cornerRadius="22dp" />
 
             </LinearLayout>
 
@@ -180,6 +198,7 @@
                 android:id="@+id/byteCount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
                 android:text="0 / 500 bytes"
                 android:textSize="11sp"
                 android:textColor="@color/text_muted" />
@@ -194,11 +213,11 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:background="@color/white"
+        android:background="@color/surface_card"
         app:menu="@menu/bottom_nav_menu"
         app:itemIconTint="@color/bottom_nav_color"
         app:itemTextColor="@color/bottom_nav_color"
-        app:elevation="16dp"
+        app:elevation="8dp"
         app:labelVisibilityMode="labeled" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

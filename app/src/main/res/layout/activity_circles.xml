@@ -9,22 +9,31 @@
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/resq_primary">
+        android:background="@color/surface_card"
+        app:elevation="0dp">
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:titleTextColor="@color/white" />
+            android:background="@color/surface_card"
+            app:titleTextColor="@color/text_primary"
+            app:navigationIconTint="@color/text_primary" />
 
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tabLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="@color/surface_card"
             app:tabTextColor="@color/text_muted"
-            app:tabSelectedTextColor="@color/white"
-            app:tabIndicatorColor="@color/resq_accent"
-            android:background="@color/resq_primary" />
+            app:tabSelectedTextColor="@color/text_primary"
+            app:tabIndicatorColor="@color/text_primary"
+            app:tabIndicatorHeight="2dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/color_divider" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -34,14 +43,15 @@
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
+    <!-- Black FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabCreateCircle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
+        android:layout_margin="20dp"
         android:contentDescription="@string/action_create_circle"
-        app:backgroundTint="@color/resq_accent"
+        app:backgroundTint="@color/resq_primary"
         app:tint="@color/white"
         app:srcCompat="@android:drawable/ic_input_add" />
 

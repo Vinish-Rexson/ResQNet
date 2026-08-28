@@ -23,7 +23,10 @@ class CirclesViewModel(application: Application) : AndroidViewModel(application)
     private val app = application as ResQNetApplication
 
     val uiState: StateFlow<CirclesUiState> = app.circleService.observeCircles().map { circles ->
-        val active = circles.filter { it.localState == CircleLocalState.ACTIVE }
+        val active = circles.filter { 
+            it.localState == CircleLocalState.ACTIVE || 
+            it.localState == CircleLocalState.OWNER_ACTIVE 
+        }
         val invites = circles.filter { 
             it.localState == CircleLocalState.INVITED || 
             it.localState == CircleLocalState.ACCEPTANCE_PENDING 
@@ -45,7 +48,7 @@ class CirclesViewModel(application: Application) : AndroidViewModel(application)
     fun acceptInvite(circleId: String, onResult: (String?) -> Unit) = viewModelScope.launch {
         runCatching {
             val invites = app.circles.invitationsForCircle(circleId)
-            val invite = invites.find { it.targetNodeId == app.signer.nodeId && it.state == CircleInvitationState.ACCEPTANCE_PENDING }
+            val invite = invites.find { it.targetNodeId == app.signer.nodeId && it.state == CircleInvitationState.PENDING }
                 ?: throw IllegalStateException("No pending invitation found for this circle")
             app.circleService.accept(invite.inviteId)
         }
@@ -56,7 +59,7 @@ class CirclesViewModel(application: Application) : AndroidViewModel(application)
     fun declineInvite(circleId: String, onResult: (String?) -> Unit) = viewModelScope.launch {
         runCatching {
             val invites = app.circles.invitationsForCircle(circleId)
-            val invite = invites.find { it.targetNodeId == app.signer.nodeId && it.state == CircleInvitationState.ACCEPTANCE_PENDING }
+            val invite = invites.find { it.targetNodeId == app.signer.nodeId && it.state == CircleInvitationState.PENDING }
                 ?: throw IllegalStateException("No pending invitation found for this circle")
             app.circleService.decline(invite.inviteId)
         }

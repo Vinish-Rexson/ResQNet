@@ -1,18 +1,29 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- B&W application theme — force light colours via DayNight parent -->
     <style name="Theme.ResQNet" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Primary brand color. -->
+        <!-- Primary = black -->
         <item name="colorPrimary">@color/resq_primary</item>
         <item name="colorPrimaryVariant">@color/resq_primary_dark</item>
         <item name="colorOnPrimary">@color/white</item>
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/resq_accent</item>
-        <item name="colorSecondaryVariant">@color/resq_accent</item>
-        <item name="colorOnSecondary">@color/black</item>
-        <!-- Status bar color. -->
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <item name="android:fontFamily">sans</item>
-        <item name="android:navigationBarColor">@color/surface</item>
-        <!-- Customize your theme here. -->
+        <!-- Secondary = black -->
+        <item name="colorSecondary">@color/resq_primary</item>
+        <item name="colorSecondaryVariant">@color/resq_primary</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <!-- Background / surface -->
+        <item name="android:colorBackground">@color/surface_card</item>
+        <item name="colorSurface">@color/surface_card</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <!-- Status / nav bars -->
+        <item name="android:statusBarColor">@color/resq_primary</item>
+        <item name="android:navigationBarColor">@color/white</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <!-- Filled buttons are black with rounded corners -->
+        <item name="materialButtonStyle">@style/Widget.ResQNet.Button</item>
+    </style>
+
+    <style name="Widget.ResQNet.Button" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/resq_primary</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="cornerRadius">24dp</item>
     </style>
 </resources>

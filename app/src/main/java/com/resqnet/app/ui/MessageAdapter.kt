@@ -29,6 +29,14 @@ class MessageAdapter : ListAdapter<ConversationMessageEntity, MessageAdapter.Hol
         params.gravity = if (message.outgoing) Gravity.END else Gravity.START
         holder.bubble.layoutParams = params
         holder.bubble.setBackgroundResource(if (message.outgoing) R.drawable.bg_message_outgoing else R.drawable.bg_message_incoming)
+
+        val ctx = holder.itemView.context
+        val textColor = if (message.outgoing) ctx.getColor(R.color.white) else ctx.getColor(R.color.text_primary)
+        val metaColor = if (message.outgoing) 0x99FFFFFF.toInt() else ctx.getColor(R.color.text_muted)
+        holder.author.setTextColor(textColor)
+        holder.body.setTextColor(textColor)
+        holder.metadata.setTextColor(metaColor)
+
         holder.author.text = if (message.outgoing) "You" else message.originName
         holder.body.text = message.text
         val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.createdAt))

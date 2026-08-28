@@ -1,30 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/surface">
 
-    <!-- AppBar -->
+    <!-- AppBar — white -->
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:theme="@style/Theme.ResQNet">
+        android:background="@color/surface_card"
+        app:elevation="0dp">
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/resq_primary"
+            android:background="@color/surface_card"
+            app:titleTextColor="@color/text_primary"
+            app:navigationIconTint="@color/text_primary"
             android:title="Contacts" />
 
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tabLayout"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:background="@color/resq_primary"
+            android:background="@color/surface_card"
+            app:tabTextColor="@color/text_muted"
+            app:tabSelectedTextColor="@color/text_primary"
+            app:tabIndicatorColor="@color/text_primary"
+            app:tabIndicatorHeight="2dp"
             style="@style/Widget.MaterialComponents.TabLayout" />
+
+        <!-- Bottom divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/color_divider" />
 
     </com.google.android.material.appbar.AppBarLayout>
 

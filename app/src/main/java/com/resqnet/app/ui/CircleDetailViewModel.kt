@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.resqnet.app.ResQNetApplication
+import com.resqnet.app.circles.CircleDeliveryProgress
 import com.resqnet.app.circles.CircleEntity
 import com.resqnet.app.circles.CircleMemberEntity
 import com.resqnet.app.circles.CircleMessageEntity
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
 data class MemberUiModel(
     val member: CircleMemberEntity,
     val displayName: String,
+    val status: CircleStatusEventEntity?,
 )
 
 data class CircleDetailUiState(
@@ -24,6 +26,8 @@ data class CircleDetailUiState(
     val messages: List<CircleMessageEntity> = emptyList(),
     val localStatus: CircleStatusEventEntity? = null,
     val memberStatuses: Map<String, CircleStatusEventEntity> = emptyMap(),
+    // messageId → delivery progress (delivered/possible)
+    val deliveryProgress: Map<String, CircleDeliveryProgress> = emptyMap(),
 )
 
 class CircleDetailViewModel(application: Application) : AndroidViewModel(application) {
@@ -33,22 +37,39 @@ class CircleDetailViewModel(application: Application) : AndroidViewModel(applica
     var circleId: String = ""
 
     private val _circle = MutableStateFlow<CircleEntity?>(null)
-    private val _members = MutableStateFlow<List<MemberUiModel>>(emptyList())
-    private val _statuses = MutableStateFlow<Map<String, CircleStatusEventEntity>>(emptyMap())
+    private val _rawMembers = MutableStateFlow<List<CircleMemberEntity>>(emptyList())
+    private val _progress = MutableStateFlow<Map<String, CircleDeliveryProgress>>(emptyMap())
 
     val uiState: StateFlow<CircleDetailUiState> by lazy {
         combine(
             _circle,
-            _members,
+            _rawMembers,
             app.circleMessages.observeMessages(circleId),
-            _statuses
-        ) { circle, members, messages, statuses ->
+            app.circleStatuses.observeStatuses(circleId),
+            _progress,
+        ) { circle, rawMembers, messages, statuses, progress ->
+            val statusMap = statuses
+                .groupBy { it.memberNodeId }
+                .mapValues { (_, memberStatuses) -> memberStatuses.maxByOrNull { it.originSequence }!! }
+                
+            val members = rawMembers.map { member ->
+                val name = if (member.nodeId == localNodeId) {
+                    app.profile.displayName
+                } else {
+                    app.contacts.find(member.nodeId)?.displayName
+                        ?: app.peers.find(member.nodeId)?.displayName
+                        ?: member.nodeId.take(8)
+                }
+                MemberUiModel(member, name, statusMap[member.nodeId])
+            }
+
             CircleDetailUiState(
                 circle = circle,
                 members = members,
                 messages = messages,
-                localStatus = statuses[localNodeId],
-                memberStatuses = statuses
+                localStatus = statusMap[localNodeId],
+                memberStatuses = statusMap,
+                deliveryProgress = progress,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CircleDetailUiState())
     }
@@ -57,29 +78,19 @@ class CircleDetailViewModel(application: Application) : AndroidViewModel(applica
         app.circles.circle(circleId)?.let { _circle.value = it }
         val snapshot = app.circles.latestSnapshot(circleId)
         if (snapshot != null) {
-            val members = app.circles.members(circleId, snapshot.membershipVersion)
-            
-            // Map to MemberUiModel
-            val uiModels = members.map { member ->
-                val name = if (member.nodeId == localNodeId) {
-                    app.profile.displayName
-                } else {
-                    app.contacts.find(member.nodeId)?.displayName
-                        ?: app.peers.find(member.nodeId)?.displayName
-                        ?: member.nodeId.take(8)
-                }
-                MemberUiModel(member, name)
-            }
-            _members.value = uiModels
-
-            val statuses = mutableMapOf<String, CircleStatusEventEntity>()
-            for (member in members) {
-                app.circleStatuses.history(circleId, member.nodeId).maxByOrNull { it.originSequence }?.let {
-                    statuses[member.nodeId] = it
-                }
-            }
-            _statuses.value = statuses
+            _rawMembers.value = app.circles.members(circleId, snapshot.membershipVersion)
         }
+
+        // Load delivery progress for all outgoing messages in this circle
+        val messages = app.circleMessages.messages(circleId)
+        val progressMap = mutableMapOf<String, CircleDeliveryProgress>()
+        for (msg in messages) {
+            val progress = runCatching { app.circleMessages.deliveryProgress(msg.messageId) }.getOrNull()
+            if (progress != null && progress.possible > 0) {
+                progressMap[msg.messageId] = progress
+            }
+        }
+        _progress.value = progressMap
     }
 
     fun send(text: String, onResult: (String?) -> Unit) = viewModelScope.launch {
@@ -90,10 +101,10 @@ class CircleDetailViewModel(application: Application) : AndroidViewModel(applica
 
     fun updateStatus(status: SafetyStatus, note: String?, onResult: (String?) -> Unit) = viewModelScope.launch {
         runCatching { app.circleStatuses.update(circleId, status, note) }
-            .onSuccess { 
+            .onSuccess {
                 MeshService.command(app, MeshService.ACTION_SYNC)
-                load() // Reload to reflect the new status
-                onResult(null) 
+                load()
+                onResult(null)
             }
             .onFailure { onResult(it.message ?: "Could not update status") }
     }
@@ -108,6 +119,12 @@ class CircleDetailViewModel(application: Application) : AndroidViewModel(applica
         runCatching { app.circleService.removeMember(circleId, nodeId) }
             .onSuccess { MeshService.command(app, MeshService.ACTION_SYNC); load(); onResult(null) }
             .onFailure { onResult(it.message ?: "Could not remove member") }
+    }
+
+    fun rename(name: String, onResult: (String?) -> Unit) = viewModelScope.launch {
+        runCatching { app.circleService.rename(circleId, name) }
+            .onSuccess { MeshService.command(app, MeshService.ACTION_SYNC); load(); onResult(null) }
+            .onFailure { onResult(it.message ?: "Could not rename circle") }
     }
 
     fun leave(onResult: (String?) -> Unit) = viewModelScope.launch {

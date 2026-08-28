@@ -122,6 +122,12 @@ class DirectConversationActivity : AppCompatActivity() {
             holder.bubble.setBackgroundResource(
                 if (msg.outgoing) R.drawable.bg_message_outgoing else R.drawable.bg_message_incoming
             )
+
+            val ctx = holder.itemView.context
+            val textColor = if (msg.outgoing) ctx.getColor(R.color.white) else ctx.getColor(R.color.text_primary)
+            holder.author.setTextColor(textColor)
+            holder.body.setTextColor(textColor)
+
             holder.author.text = if (msg.outgoing) "You" else msg.originName
             holder.body.text = msg.text
             val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.createdAt))
@@ -132,12 +138,7 @@ class DirectConversationActivity : AppCompatActivity() {
             }
             holder.meta.text = if (msg.outgoing) "$time  •  $status" else time
             holder.meta.setTextColor(
-                holder.itemView.context.getColor(
-                    if (msg.outgoing && msg.deliveryState == DeliveryState.DELIVERED)
-                        R.color.color_delivered
-                    else
-                        R.color.text_muted
-                )
+                if (msg.outgoing) 0x99FFFFFF.toInt() else ctx.getColor(R.color.text_muted)
             )
         }
     }

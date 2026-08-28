@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Keep legacy names referenced by auto-generated code -->
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#FF6200EE</color>
     <color name="purple_700">#FF3700B3</color>
@@ -7,21 +8,36 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="resq_primary">#123B36</color>
-    <color name="resq_primary_dark">#092925</color>
-    <color name="resq_accent">#F2A93B</color>
-    <color name="surface">#F5F7F5</color>
+
+    <!-- B&W design system -->
+    <color name="resq_primary">#000000</color>
+    <color name="resq_primary_dark">#000000</color>
+    <color name="resq_accent">#000000</color>
+
+    <!-- Surfaces -->
+    <color name="surface">#F5F5F5</color>
     <color name="surface_card">#FFFFFF</color>
-    <color name="bubble_incoming">#FFFFFFFF</color>
-    <color name="bubble_outgoing">#D8EFE8</color>
-    <color name="text_primary">#17211F</color>
-    <color name="text_muted">#60706C</color>
-    <color name="alert">#B3261E</color>
-    <color name="color_safe">#2E7D32</color>
-    <color name="color_need_help">#B71C1C</color>
-    <color name="color_pending">#E65100</color>
-    <color name="color_avatar_bg">#1B5E4A</color>
-    <color name="color_divider">#E0E7E5</color>
-    <color name="color_delivered">#1976D2</color>
-    <color name="color_unknown">#9E9E9E</color>
+
+    <!-- Chat bubbles -->
+    <color name="bubble_outgoing">#000000</color>
+    <color name="bubble_incoming">#EDEDEE</color>
+
+    <!-- Typography -->
+    <color name="text_primary">#000000</color>
+    <color name="text_muted">#888888</color>
+    <color name="text_on_dark">#FFFFFF</color>
+
+    <!-- Dividers / strokes -->
+    <color name="color_divider">#E0E0E0</color>
+    <color name="color_avatar_bg">#000000</color>
+
+    <!-- Status — greyscale with red for Need Help -->
+    <color name="color_safe">#000000</color>
+    <color name="color_need_help">#CC0000</color>
+    <color name="color_pending">#555555</color>
+    <color name="color_unknown">#999999</color>
+    <color name="color_delivered">#000000</color>
+
+    <!-- Destructive -->
+    <color name="alert">#CC0000</color>
 </resources>
