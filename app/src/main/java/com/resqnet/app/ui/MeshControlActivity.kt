@@ -28,14 +28,22 @@ class MeshControlActivity : AppCompatActivity() {
             else permissions.launch(requiredPermissions())
         }
         findViewById<Button>(R.id.stopMeshButton).setOnClickListener { MeshService.command(this, MeshService.ACTION_STOP) }
+        
+        setupBottomNav(this, R.id.nav_mesh)
+        
         lifecycleScope.launch { repeatOnLifecycle(Lifecycle.State.STARTED) { MeshRuntime.state.collect {
             findViewById<TextView>(R.id.controlStatus).text = "${it.status}\nNearby connections: ${it.peerCount}"
+            
+            val isActive = it.active
+            findViewById<Button>(R.id.startMeshButton).visibility = if (isActive) android.view.View.GONE else android.view.View.VISIBLE
+            findViewById<Button>(R.id.stopMeshButton).visibility = if (isActive) android.view.View.VISIBLE else android.view.View.GONE
         } } }
     }
     override fun onResume() { super.onResume(); updatePermissionText() }
     private fun updatePermissionText() {
         val granted = requiredPermissions().all { checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED }
         findViewById<TextView>(R.id.permissionStatus).text = if (granted) "Nearby devices permission granted" else "Nearby devices permission required"
+        findViewById<Button>(R.id.permissionButton).visibility = if (granted) android.view.View.GONE else android.view.View.VISIBLE
     }
     private fun requiredPermissions(): Array<String> = if (Build.VERSION.SDK_INT >= 31) arrayOf(
         Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_ADVERTISE, Manifest.permission.BLUETOOTH_CONNECT

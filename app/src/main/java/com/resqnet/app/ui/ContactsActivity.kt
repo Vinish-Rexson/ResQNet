@@ -39,7 +39,6 @@ class ContactsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_contacts)
 
         setSupportActionBar(findViewById(R.id.toolbar))
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         // Wire ViewPager2 with a simple array adapter pointing at three static views
         val pager = findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPager)
@@ -110,6 +109,8 @@ class ContactsActivity : AppCompatActivity() {
             showFingerprintDialog(peer)
         }
 
+        setupBottomNav(this, R.id.nav_contacts)
+
         // Observe state
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -126,8 +127,6 @@ class ContactsActivity : AppCompatActivity() {
             }
         }
     }
-
-    override fun onSupportNavigateUp(): Boolean { onBackPressedDispatcher.onBackPressed(); return true }
 
     private fun showSnack(msg: String) =
         Snackbar.make(findViewById(android.R.id.content), msg, Snackbar.LENGTH_LONG).show()

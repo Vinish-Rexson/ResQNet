@@ -80,27 +80,7 @@ class ChatActivity : AppCompatActivity() {
         }
 
         // Bottom Navigation
-        findViewById<BottomNavigationView>(R.id.bottomNav).apply {
-            selectedItemId = R.id.nav_chat
-            setOnItemSelectedListener { item ->
-                when (item.itemId) {
-                    R.id.nav_chat -> true // already here
-                    R.id.nav_contacts -> {
-                        startActivity(Intent(this@ChatActivity, ContactsActivity::class.java))
-                        false // don't highlight, we're launching a new activity
-                    }
-                    R.id.nav_circles -> {
-                        startActivity(Intent(this@ChatActivity, CirclesActivity::class.java))
-                        false
-                    }
-                    R.id.nav_mesh -> {
-                        startActivity(Intent(this@ChatActivity, MeshControlActivity::class.java))
-                        false
-                    }
-                    else -> false
-                }
-            }
-        }
+        setupBottomNav(this, R.id.nav_chat)
 
         // Observe state
         lifecycleScope.launch {
@@ -117,7 +97,7 @@ class ChatActivity : AppCompatActivity() {
                     model.mesh.collect { state ->
                         meshStatusView.text = state.status
                         peerCountView.text = "${state.peerCount} peer${if (state.peerCount == 1) "" else "s"} nearby"
-                        val isActive = state.peerCount > 0 || state.status.contains("running", ignoreCase = true)
+                        val isActive = state.active
                         statusDot.setBackgroundResource(
                             if (isActive) R.drawable.bg_status_dot_active
                             else R.drawable.bg_status_dot_inactive

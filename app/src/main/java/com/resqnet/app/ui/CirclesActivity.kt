@@ -37,7 +37,6 @@ class CirclesActivity : AppCompatActivity() {
         setContentView(R.layout.activity_circles)
 
         setSupportActionBar(findViewById(R.id.toolbar))
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = getString(R.string.action_circles)
 
         val pager = findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPager)
@@ -95,6 +94,8 @@ class CirclesActivity : AppCompatActivity() {
             }
         }
 
+        setupBottomNav(this, R.id.nav_circles)
+
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 model.uiState.collect { state ->
@@ -109,8 +110,6 @@ class CirclesActivity : AppCompatActivity() {
             }
         }
     }
-
-    override fun onSupportNavigateUp(): Boolean { onBackPressedDispatcher.onBackPressed(); return true }
 
     private fun showSnack(msg: String) =
         Snackbar.make(findViewById(android.R.id.content), msg, Snackbar.LENGTH_LONG).show()

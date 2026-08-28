@@ -7,6 +7,7 @@ import com.resqnet.app.ResQNetApplication
 import com.resqnet.app.data.ConversationMessageEntity
 import com.resqnet.app.mesh.MeshRuntime
 import com.resqnet.app.mesh.MeshService
+import com.resqnet.app.protocol.CHANNEL_ID
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -14,7 +15,7 @@ import kotlinx.coroutines.launch
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as ResQNetApplication
-    val messages: StateFlow<List<ConversationMessageEntity>> = app.messages.observeMessages()
+    val messages: StateFlow<List<ConversationMessageEntity>> = app.messages.observeConversation(CHANNEL_ID)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val mesh = MeshRuntime.state
 
