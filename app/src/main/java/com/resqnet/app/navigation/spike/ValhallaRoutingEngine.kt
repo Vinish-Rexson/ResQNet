@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Valhalla on-device routing engine implementation via valhalla-mobile (v0.6.1).
@@ -15,6 +16,7 @@ class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
     override val name: String = "Valhalla (v3.6.3 via valhalla-mobile)"
 
     private val bridge = ValhallaBridge()
+    private val requestSequence = AtomicLong(0)
 
     @Synchronized
     override fun isInitialized(): Boolean = bridge.isInitialized
@@ -50,6 +52,13 @@ class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
                 mjolnir.remove("transit_feeds_dir")
                 json.put("mjolnir", mjolnir)
                 json.remove("additional_data")
+
+                val serviceLimits = json.optJSONObject("service_limits") ?: JSONObject()
+                serviceLimits.put("allow_hard_exclusions", true)
+                serviceLimits.put("max_exclude_polygons_length", 100000)
+                serviceLimits.put("max_exclude_locations", 100)
+                json.put("service_limits", serviceLimits)
+
                 configFile.writeText(json.toString(2))
             } catch (_: Throwable) {
                 createDefaultConfig(dataDir)
@@ -58,6 +67,14 @@ class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
             createDefaultConfig(dataDir)
         }
 
+        val configJson = JSONObject(configFile.readText())
+        val limits = configJson.optJSONObject("service_limits") ?: JSONObject()
+        android.util.Log.i(
+            "ValhallaConfig",
+            "path=${configFile.absolutePath} max_exclude_locations=${limits.optInt("max_exclude_locations", -1)} " +
+                "max_exclude_polygons_length=${limits.optInt("max_exclude_polygons_length", -1)} " +
+                "allow_hard_exclusions=${limits.optBoolean("allow_hard_exclusions", false)}"
+        )
         bridge.init(configFile.absolutePath)
     }
 
@@ -66,9 +83,33 @@ class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
         to: LatLon,
         profile: RoutingProfile,
         avoidPoints: List<LatLon>
+    ): RouteResult = routeInternal(from, to, profile, avoidPoints, null)
+
+    /** Diagnostic-only polygon request; normal RoutingEngine behavior is unchanged. */
+    suspend fun routeWithExcludePolygon(
+        from: LatLon,
+        to: LatLon,
+        profile: RoutingProfile = RoutingProfile.PEDESTRIAN,
+        center: LatLon,
+        boxSizeMeters: Double
+    ): RouteResult = routeInternal(from, to, profile, emptyList(), PolygonExclusion(center, boxSizeMeters))
+
+    private suspend fun routeInternal(
+        from: LatLon,
+        to: LatLon,
+        profile: RoutingProfile,
+        avoidPoints: List<LatLon>,
+        polygon: PolygonExclusion?
     ): RouteResult = withContext(Dispatchers.IO) {
         require(bridge.isInitialized) {
             "Valhalla engine is not initialized. Call init(dataDir) first."
+        }
+
+        val requestId = "resqnet_spike_route_${requestSequence.incrementAndGet()}"
+        val requestMode = when {
+            polygon != null -> "exclude_polygons"
+            avoidPoints.isNotEmpty() -> "exclude_locations"
+            else -> "baseline"
         }
 
         val requestObj = JSONObject().apply {
@@ -92,26 +133,47 @@ class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
                 })
             })
 
-            if (avoidPoints.isNotEmpty()) {
+            if (polygon != null) {
+                put("exclude_polygons", polygon.toJson())
+            } else if (avoidPoints.isNotEmpty()) {
                 val avoidArray = JSONArray()
                 avoidPoints.forEach { pt ->
                     avoidArray.put(JSONObject().apply {
                         put("lat", pt.lat)
                         put("lon", pt.lon)
+                        // Obstacles are already road-level reports. Avoid Valhalla's
+                        // comparatively expensive default reachability/ranking work for
+                        // every excluded location and keep correlation local to the report.
+                        put("minimum_reachability", 0)
+                        put("radius", AVOID_RADIUS_METERS)
+                        put("search_cutoff", AVOID_SEARCH_CUTOFF_METERS)
+                        put("rank_candidates", false)
                     })
                 }
                 put("exclude_locations", avoidArray)
-                put("avoid_locations", avoidArray)
             }
 
             put("directions_options", JSONObject().apply {
                 put("units", "kilometers")
             })
-            put("id", "resqnet_spike_route")
+            put("id", requestId)
         }
 
-        val responseJsonStr = bridge.route(requestObj.toString())
+        val requestJson = requestObj.toString()
+        logRawRequest(
+            requestId = requestId,
+            mode = requestMode,
+            points = avoidPoints.size,
+            polygonBoxMeters = polygon?.boxSizeMeters ?: 0.0,
+            json = requestJson
+        )
+        val responseJsonStr = bridge.route(requestJson)
         val respObj = JSONObject(responseJsonStr)
+        android.util.Log.i(
+            "ValhallaRawResponse",
+            "requestId=$requestId responseId=${respObj.optString("id", "<missing>")} " +
+                "hasTrip=${respObj.has("trip")} warnings=${respObj.optJSONArray("warnings") ?: "[]"}"
+        )
 
         if (!respObj.has("trip")) {
             val errorMsg = respObj.optString("error", respObj.optString("message", respObj.toString()))
@@ -179,6 +241,9 @@ class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
                 put("pedestrian", JSONObject().apply {
                     put("max_distance", 100000.0)
                 })
+                put("allow_hard_exclusions", true)
+                put("max_exclude_polygons_length", 100000)
+                put("max_exclude_locations", 100)
             })
         }
 
@@ -186,8 +251,57 @@ class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
         return targetConfigFile
     }
 
+    private fun logRawRequest(
+        requestId: String,
+        mode: String,
+        points: Int,
+        polygonBoxMeters: Double,
+        json: String
+    ) {
+        val prefix = "requestId=$requestId mode=$mode points=$points polygonBoxMeters=$polygonBoxMeters json="
+        val chunkSize = 3000
+        val chunks = json.chunked(chunkSize)
+        chunks.forEachIndexed { index, chunk ->
+            android.util.Log.i(
+                "ValhallaRawRequest",
+                "$prefix part=${index + 1}/${chunks.size} $chunk"
+            )
+        }
+    }
+
     @Synchronized
     override fun close() {
         bridge.close()
+    }
+
+    private companion object {
+        const val AVOID_RADIUS_METERS = 75
+        const val AVOID_SEARCH_CUTOFF_METERS = 150
+    }
+}
+
+private data class PolygonExclusion(
+    val center: LatLon,
+    val boxSizeMeters: Double
+) {
+    init {
+        require(boxSizeMeters > 0.0) { "Polygon box size must be positive" }
+    }
+
+    fun toJson(): JSONArray {
+        val halfLat = (boxSizeMeters / 2.0) / 111_000.0
+        val halfLon = halfLat / kotlin.math.cos(Math.toRadians(center.lat))
+        val minLat = center.lat - halfLat
+        val maxLat = center.lat + halfLat
+        val minLon = center.lon - halfLon
+        val maxLon = center.lon + halfLon
+
+        val ring = JSONArray()
+            .put(JSONArray().put(minLon).put(minLat))
+            .put(JSONArray().put(maxLon).put(minLat))
+            .put(JSONArray().put(maxLon).put(maxLat))
+            .put(JSONArray().put(minLon).put(maxLat))
+            .put(JSONArray().put(minLon).put(minLat))
+        return JSONArray().put(ring)
     }
 }

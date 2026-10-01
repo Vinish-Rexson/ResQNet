@@ -123,7 +123,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Short (~1 km)"
+            android:text="Short (1.44 km)"
             android:checked="true"
             android:textSize="12sp" />
 
@@ -132,7 +132,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Med (~8 km)"
+            android:text="Medium (13.6 km)"
             android:textSize="12sp" />
 
         <RadioButton
@@ -140,7 +140,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Long (~30 km)"
+            android:text="Long (62.9 km)"
             android:textSize="12sp" />
     </RadioGroup>
 
