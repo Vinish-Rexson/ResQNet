@@ -9,7 +9,7 @@ import java.io.File
 
 /**
  * Valhalla on-device routing engine implementation via valhalla-mobile (v0.6.1).
- * Communicates directly with the native C++ library via ValhallaBridge.
+ * Dynamically adapts valhalla.json to point to on-device tile paths.
  */
 class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
     override val name: String = "Valhalla (v3.6.3 via valhalla-mobile)"
@@ -28,8 +28,35 @@ class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
             "Valhalla data directory does not exist: ${dataDir.absolutePath}"
         }
 
-        val configFile = File(dataDir, "valhalla.json").takeIf { it.exists() }
-            ?: createDefaultConfig(dataDir)
+        val configFile = File(dataDir, "valhalla.json")
+        val tilesTar = File(dataDir, "tiles.tar").takeIf { it.exists() }
+            ?: File(dataDir, "valhalla_tiles.tar").takeIf { it.exists() }
+
+        if (configFile.exists()) {
+            try {
+                // Dynamically sanitize config to match on-device tile location
+                val json = JSONObject(configFile.readText())
+                val mjolnir = json.optJSONObject("mjolnir") ?: JSONObject()
+                mjolnir.put("tile_dir", dataDir.absolutePath)
+                if (tilesTar != null) {
+                    mjolnir.put("tile_extract", tilesTar.absolutePath)
+                }
+                // Strip non-existent server/desktop paths
+                mjolnir.remove("admin")
+                mjolnir.remove("timezone")
+                mjolnir.remove("traffic_extract")
+                mjolnir.remove("landmarks")
+                mjolnir.remove("transit_dir")
+                mjolnir.remove("transit_feeds_dir")
+                json.put("mjolnir", mjolnir)
+                json.remove("additional_data")
+                configFile.writeText(json.toString(2))
+            } catch (_: Throwable) {
+                createDefaultConfig(dataDir)
+            }
+        } else {
+            createDefaultConfig(dataDir)
+        }
 
         bridge.init(configFile.absolutePath)
     }
@@ -86,9 +113,9 @@ class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
         val responseJsonStr = bridge.route(requestObj.toString())
         val respObj = JSONObject(responseJsonStr)
 
-        if (respObj.has("error_code") || respObj.has("error")) {
-            val errorMsg = respObj.optString("error", respObj.optString("message", "Unknown Valhalla error"))
-            error("Valhalla route error: $errorMsg")
+        if (!respObj.has("trip")) {
+            val errorMsg = respObj.optString("error", respObj.optString("message", respObj.toString()))
+            error("Valhalla route error: $errorMsg (Raw response: $responseJsonStr)")
         }
 
         val trip = respObj.getJSONObject("trip")

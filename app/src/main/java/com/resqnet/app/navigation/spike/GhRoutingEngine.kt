@@ -16,8 +16,7 @@ import java.io.File
 
 /**
  * GraphHopper on-device routing engine implementation (v9.1).
- * Supports pedestrian routing with Contraction Hierarchies (speed mode)
- * and CustomModel / CH-disabled mode for obstacle / flood avoidance.
+ * Matches the exact CustomModel profile built for pedestrian MMR routing.
  */
 class GhRoutingEngine : RoutingEngine {
     override val name: String = "GraphHopper (v9.1)"
@@ -42,9 +41,14 @@ class GhRoutingEngine : RoutingEngine {
         }
 
         val gh = GraphHopper().apply {
-            // Profile configuration matches pre-built graph foot profile
+            // Profile configuration matches the exact graph-cache foot profile hash
+            val footCustomModel = CustomModel().apply {
+                addToSpeed(Statement.If("true", Statement.Op.LIMIT, "foot_average_speed"))
+                addToPriority(Statement.If("!foot_access", Statement.Op.MULTIPLY, "0"))
+                addToPriority(Statement.Else(Statement.Op.MULTIPLY, "foot_priority"))
+            }
             profiles = listOf(
-                Profile("foot").setWeighting("shortest")
+                Profile("foot").setCustomModel(footCustomModel)
             )
             setGraphHopperLocation(dataDir.absolutePath)
             setAllowWrites(false) // Read-only memory-mapped access
@@ -71,8 +75,12 @@ class GhRoutingEngine : RoutingEngine {
             .setLocale(java.util.Locale.ENGLISH)
 
         if (avoidPoints.isNotEmpty()) {
-            // Build custom model to avoid areas around the blocked points
-            val customModel = CustomModel()
+            // Base pedestrian model with spatial area avoidance
+            val customModel = CustomModel().apply {
+                addToSpeed(Statement.If("true", Statement.Op.LIMIT, "foot_average_speed"))
+                addToPriority(Statement.If("!foot_access", Statement.Op.MULTIPLY, "0"))
+                addToPriority(Statement.Else(Statement.Op.MULTIPLY, "foot_priority"))
+            }
             val featureCollection = JsonFeatureCollection()
 
             // Small bounding box radius (~100m, ~0.0009 degrees) around each avoid point
