@@ -46,6 +46,10 @@
             android:name=".ui.CircleDetailActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ui.SpikeActivity"
+            android:exported="true"
+            android:label="Routing Engine Spike" />
     </application>
 
 </manifest>
