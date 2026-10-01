@@ -11,6 +11,8 @@ lifecycle = "2.10.0"
 activity = "1.13.0"
 recyclerview = "1.4.0"
 coroutines = "1.10.2"
+graphhopper = "9.1"
+valhalla = "0.6.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -27,6 +29,8 @@ androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifec
 androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activity" }
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+graphhopper-core = { group = "com.graphhopper", name = "graphhopper-core", version.ref = "graphhopper" }
+valhalla-mobile = { group = "io.github.rallista", name = "valhalla-mobile", version.ref = "valhalla" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

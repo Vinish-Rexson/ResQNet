@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/surface"
+    android:padding="16dp">
+
+    <!-- Header Toolbar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Offline Routing Engine Spike"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
+
+        <Button
+            android:id="@+id/btnRefreshStorage"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="Refresh"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- Storage Status Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="@color/surface_card">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Storage &amp; Data Directory"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/tvStorageStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_muted"
+                android:layout_marginTop="4dp"
+                android:text="Checking storage..." />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Engine Selector -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="1. Routing Candidate"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:textColor="@color/text_primary" />
+
+    <RadioGroup
+        android:id="@+id/rgEngine"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <RadioButton
+            android:id="@+id/rbGraphHopper"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:checked="true"
+            android:text="GraphHopper 9.1"
+            android:textSize="13sp" />
+
+        <RadioButton
+            android:id="@+id/rbValhalla"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Valhalla 3.6.3"
+            android:textSize="13sp" />
+    </RadioGroup>
+
+    <!-- Route Selector -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="2. Test Route Pair (Vasai-Virar / Mumbai)"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:textColor="@color/text_primary" />
+
+    <RadioGroup
+        android:id="@+id/rgRoutePair"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <RadioButton
+            android:id="@+id/rbShort"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Short (~1 km)"
+            android:checked="true"
+            android:textSize="12sp" />
+
+        <RadioButton
+            android:id="@+id/rbMedium"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Med (~8 km)"
+            android:textSize="12sp" />
+
+        <RadioButton
+            android:id="@+id/rbLong"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Long (~30 km)"
+            android:textSize="12sp" />
+    </RadioGroup>
+
+    <!-- Obstacle Avoidance Selector -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="3. Flooded / Blocked Points"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:textColor="@color/text_primary" />
+
+    <RadioGroup
+        android:id="@+id/rgAvoid"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="12dp">
+
+        <RadioButton
+            android:id="@+id/rbAvoidNone"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:checked="true"
+            android:text="None (0)"
+            android:textSize="12sp" />
+
+        <RadioButton
+            android:id="@+id/rbAvoid1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="1 Point"
+            android:textSize="12sp" />
+
+        <RadioButton
+            android:id="@+id/rbAvoid10"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="10 Points"
+            android:textSize="12sp" />
+    </RadioGroup>
+
+    <!-- Actions -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="12dp">
+
+        <Button
+            android:id="@+id/btnRunSingle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Run Single Route"
+            android:layout_marginEnd="8dp" />
+
+        <Button
+            android:id="@+id/btnRunBenchmark"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Run Test Matrix"
+            android:backgroundTint="@color/text_primary"
+            android:textColor="@color/surface" />
+    </LinearLayout>
+
+    <!-- Results Log Header & Action -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="4dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Execution Log &amp; Metrics"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:textColor="@color/text_primary" />
+
+        <Button
+            android:id="@+id/btnCopyLog"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:text="Copy"
+            android:textSize="11sp"
+            android:layout_marginEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnClearLog"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:text="Clear"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- Scrollable Results Log -->
+    <ScrollView
+        android:id="@+id/scrollViewLog"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@color/surface_card"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/tvLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textSize="11sp"
+            android:textColor="@color/text_primary"
+            android:textIsSelectable="true"
+            android:text="Ready. Select candidate engine and run." />
+    </ScrollView>
+
+</LinearLayout>

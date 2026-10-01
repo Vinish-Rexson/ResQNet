@@ -861,6 +861,8 @@ class CircleRouterTest {
         }
         override suspend fun latestStatus(circleId: String, memberNodeId: String) = statusValues.values.filter { it.circleId == circleId && it.memberNodeId == memberNodeId }.maxByOrNull { it.originSequence }
         override suspend fun statusHistory(circleId: String, memberNodeId: String) = statusValues.values.filter { it.circleId == circleId && it.memberNodeId == memberNodeId }
+        override fun observeStatuses(circleId: String): Flow<List<CircleStatusEventEntity>> =
+            MutableStateFlow(statusValues.values.filter { it.circleId == circleId })
         override suspend fun prepareAcceptance(
             inviteId: String,
             localNodeId: String,
