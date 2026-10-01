@@ -72,4 +72,15 @@ class RoutingSpikeTest {
             assertTrue(e.message?.contains("not initialized") == true)
         }
     }
+
+    @Test
+    fun testGhProfileVersion() {
+        val footCustomModel = com.graphhopper.util.CustomModel().apply {
+            addToSpeed(com.graphhopper.json.Statement.If("true", com.graphhopper.json.Statement.Op.LIMIT, "foot_average_speed"))
+            addToPriority(com.graphhopper.json.Statement.If("!foot_access", com.graphhopper.json.Statement.Op.MULTIPLY, "0"))
+            addToPriority(com.graphhopper.json.Statement.Else(com.graphhopper.json.Statement.Op.MULTIPLY, "foot_priority"))
+        }
+        val p = com.graphhopper.config.Profile("foot").setCustomModel(footCustomModel)
+        assertEquals(1482680394, p.version)
+    }
 }
