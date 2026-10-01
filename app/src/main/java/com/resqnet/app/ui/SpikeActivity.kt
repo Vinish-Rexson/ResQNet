@@ -20,6 +20,8 @@ import com.resqnet.app.navigation.spike.GhRoutingEngine
 import com.resqnet.app.navigation.spike.LatLon
 import com.resqnet.app.navigation.spike.RoutingEngine
 import com.resqnet.app.navigation.spike.RoutingProfile
+import com.resqnet.app.navigation.spike.RouteGeometry
+import com.resqnet.app.navigation.spike.RouteResult
 import com.resqnet.app.navigation.spike.ValhallaRoutingEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -50,6 +52,11 @@ data class MemorySnapshot(
  */
 class SpikeActivity : AppCompatActivity() {
 
+    private data class DiagnosticMeasurement(
+        val latencyMs: Long,
+        val result: RouteResult?
+    )
+
     private lateinit var tvStorageStatus: TextView
     private lateinit var tvLog: TextView
     private lateinit var scrollViewLog: ScrollView
@@ -63,15 +70,15 @@ class SpikeActivity : AppCompatActivity() {
 
     // Test coordinates within Mumbai Metropolitan Region (Vasai-Virar to Mumbai)
     companion object {
-        // Short: Vasai Station East to Manikpur (~1.1 km)
+        // Short: Vasai Station East to Manikpur (measured 1.44 km)
         val SHORT_FROM = LatLon(19.3828, 72.8319)
         val SHORT_TO = LatLon(19.3750, 72.8240)
 
-        // Medium: Vasai Station to Arnala (~8.2 km)
+        // Medium: Vasai Station to Arnala (measured 13.6 km)
         val MED_FROM = LatLon(19.3828, 72.8319)
         val MED_TO = LatLon(19.4530, 72.7750)
 
-        // Long: Vasai-Virar to Borivali (~28.5 km)
+        // Long: Vasai-Virar to Borivali (measured 62.9 km)
         val LONG_FROM = LatLon(19.3900, 72.8300)
         val LONG_TO = LatLon(19.2288, 72.8541)
 
@@ -137,6 +144,17 @@ class SpikeActivity : AppCompatActivity() {
 
         checkStorageStatus()
         logDeviceInfo()
+
+        val engineArg = intent.getStringExtra("engine")
+        if (engineArg.equals("valhalla", ignoreCase = true)) {
+            findViewById<RadioButton>(R.id.rbValhalla).isChecked = true
+        } else if (engineArg.equals("graphhopper", ignoreCase = true)) {
+            findViewById<RadioButton>(R.id.rbGraphHopper).isChecked = true
+        }
+
+        if (intent.getBooleanExtra("auto_benchmark", false)) {
+            btnRunBenchmark.post { btnRunBenchmark.performClick() }
+        }
     }
 
     override fun onDestroy() {
@@ -202,6 +220,7 @@ class SpikeActivity : AppCompatActivity() {
     private fun log(message: String) {
         val time = SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(Date())
         tvLog.append("[$time] $message\n")
+        Log.i("ResQNetSpike", "[$time] $message")
         scrollViewLog.post { scrollViewLog.fullScroll(ScrollView.FOCUS_DOWN) }
     }
 
@@ -343,9 +362,9 @@ class SpikeActivity : AppCompatActivity() {
                 // 2. Route Latency Matrix (Short, Medium, Long) - 5 warm runs each
                 log("--- Test 2: Route Latency Matrix (5 warm runs each) ---")
                 val pairs = listOf(
-                    Triple("Short (~1.1 km)", SHORT_FROM, SHORT_TO),
-                    Triple("Medium (~8.2 km)", MED_FROM, MED_TO),
-                    Triple("Long (~28.5 km)", LONG_FROM, LONG_TO)
+                    Triple("Short", SHORT_FROM, SHORT_TO),
+                    Triple("Medium", MED_FROM, MED_TO),
+                    Triple("Long", LONG_FROM, LONG_TO)
                 )
 
                 var shortMedian = 0L
@@ -366,7 +385,7 @@ class SpikeActivity : AppCompatActivity() {
                     val median = latencies[2]
                     val min = latencies.first()
                     val max = latencies.last()
-                    log("$label: Median: ${median}ms (Min: ${min}ms, Max: ${max}ms) | Dist: ${String.format(Locale.US, "%.1f", lastDist)}m")
+                    log("$label (measured ${String.format(Locale.US, "%.2f", lastDist / 1000.0)} km): Median: ${median}ms (Min: ${min}ms, Max: ${max}ms)")
 
                     when {
                         label.startsWith("Short") -> shortMedian = median
@@ -381,13 +400,107 @@ class SpikeActivity : AppCompatActivity() {
                 val res0 = engine.route(MED_FROM, MED_TO, RoutingProfile.PEDESTRIAN, emptyList())
                 val msAvoid0 = System.currentTimeMillis() - tAvoid0
 
-                val tAvoid1 = System.currentTimeMillis()
-                val res1 = engine.route(MED_FROM, MED_TO, RoutingProfile.PEDESTRIAN, AVOID_1)
-                val msAvoid1 = System.currentTimeMillis() - tAvoid1
+                // Derive the benchmark obstacles from the route that this tile set
+                // actually produced. The old hand-written diagonal was 267-2619 m
+                // away from the route and measured unrelated road exclusions.
+                val benchmarkAvoid10 = RouteGeometry.sampleInteriorPoints(res0.polyline, 10)
+                check(benchmarkAvoid10.size == 10) {
+                    "Baseline route did not contain enough geometry for avoidance testing"
+                }
+                val benchmarkAvoid1 = listOf(benchmarkAvoid10[benchmarkAvoid10.size / 2])
+                benchmarkAvoid10.forEachIndexed { idx, point ->
+                    log("Avoid #$idx sampled on baseline route: $point")
+                }
 
-                val tAvoid10 = System.currentTimeMillis()
-                val res10 = engine.route(MED_FROM, MED_TO, RoutingProfile.PEDESTRIAN, AVOID_10)
-                val msAvoid10 = System.currentTimeMillis() - tAvoid10
+                var res1 = res0
+                var msAvoid1 = 0L
+                var res10 = res0
+                var msAvoid10 = 0L
+
+                if (engine is ValhallaRoutingEngine) {
+                    log("Raw JSON requests: see ValhallaRawRequest logcat tag; response IDs use the same requestId.")
+                    benchmarkAvoid10.forEachIndexed { idx, point ->
+                        val location = runDiagnosticCase(
+                            engine = engine,
+                            label = "exclude_locations point#$idx",
+                            point = point,
+                            baseline = res0
+                        ) {
+                            engine.route(MED_FROM, MED_TO, RoutingProfile.PEDESTRIAN, listOf(point))
+                        }
+                        if (idx == benchmarkAvoid10.size / 2) {
+                            res1 = location.result ?: res0
+                            msAvoid1 = location.latencyMs
+                        }
+
+                        runDiagnosticCase(
+                            engine = engine,
+                            label = "exclude_polygons 30m point#$idx",
+                            point = point,
+                            baseline = res0
+                        ) {
+                            engine.routeWithExcludePolygon(
+                                MED_FROM, MED_TO, RoutingProfile.PEDESTRIAN, point, 30.0
+                            )
+                        }
+                        runDiagnosticCase(
+                            engine = engine,
+                            label = "exclude_polygons 60m point#$idx",
+                            point = point,
+                            baseline = res0
+                        ) {
+                            engine.routeWithExcludePolygon(
+                                MED_FROM, MED_TO, RoutingProfile.PEDESTRIAN, point, 60.0
+                            )
+                        }
+                    }
+
+                    val allLocations = runDiagnosticCase(
+                        engine = engine,
+                        label = "exclude_locations all10",
+                        point = benchmarkAvoid10[benchmarkAvoid10.size / 2],
+                        baseline = res0
+                    ) {
+                        engine.route(MED_FROM, MED_TO, RoutingProfile.PEDESTRIAN, benchmarkAvoid10)
+                    }
+                    res10 = allLocations.result ?: res0
+                    msAvoid10 = allLocations.latencyMs
+                    allLocations.result?.let { combinedRoute ->
+                        val clearances = benchmarkAvoid10.mapIndexed { idx, point ->
+                            String.format(
+                                Locale.US,
+                                "#%d=%.1fm",
+                                idx,
+                                RouteGeometry.distanceToPolylineMeters(point, combinedRoute.polyline)
+                            )
+                        }
+                        log("exclude_locations all10 clearanceByPoint: ${clearances.joinToString(", ")}")
+                    }
+
+                    log("--- Config limit probes ---")
+                    val overLocationLimit = List(101) { benchmarkAvoid10[it % benchmarkAvoid10.size] }
+                    try {
+                        val probe = engine.route(MED_FROM, MED_TO, RoutingProfile.PEDESTRIAN, overLocationLimit)
+                        log("max_exclude_locations probe: SUCCESS (request contained 101 points; response distance=${String.format(Locale.US, "%.1f", probe.distanceM)}m; not rejected/truncated by response)")
+                    } catch (t: Throwable) {
+                        log("max_exclude_locations probe: ERROR (${t.javaClass.simpleName}): ${t.message}")
+                    }
+                    try {
+                        val probe = engine.routeWithExcludePolygon(
+                            MED_FROM, MED_TO, RoutingProfile.PEDESTRIAN, MED_FROM, 40_000.0
+                        )
+                        log("max_exclude_polygons_length probe: SUCCESS (40 km box; response distance=${String.format(Locale.US, "%.1f", probe.distanceM)}m; not rejected/truncated by response)")
+                    } catch (t: Throwable) {
+                        log("max_exclude_polygons_length probe: ERROR (${t.javaClass.simpleName}): ${t.message}")
+                    }
+                } else {
+                    val tAvoid1 = System.currentTimeMillis()
+                    res1 = engine.route(MED_FROM, MED_TO, RoutingProfile.PEDESTRIAN, AVOID_1)
+                    msAvoid1 = System.currentTimeMillis() - tAvoid1
+                    val tAvoid10 = System.currentTimeMillis()
+                    res10 = engine.route(MED_FROM, MED_TO, RoutingProfile.PEDESTRIAN, AVOID_10)
+                    msAvoid10 = System.currentTimeMillis() - tAvoid10
+                }
 
                 val diff1 = res1.distanceM - res0.distanceM
                 val diff10 = res10.distanceM - res0.distanceM
@@ -440,10 +553,11 @@ class SpikeActivity : AppCompatActivity() {
                 val unblockedLatencyBaseline = if (msAvoid0 > 0) msAvoid0 else medMedian
                 val avoidanceLatencyThreshold = (THRESHOLD_AVOIDANCE_FACTOR * unblockedLatencyBaseline).toLong()
                 val passAvoidance = (msAvoid10 <= avoidanceLatencyThreshold) && detourOccurred
+                val passAvoidanceAbsolute = msAvoid10 <= 1000L
                 val passRobustness = errors == 0
 
-                val allPass = passColdStart && passMedRoute && passLongRoute && passExtraPss && passAvoidance && passRobustness
-                val passedCount = listOf(passColdStart, passMedRoute, passLongRoute, passExtraPss, passAvoidance, passRobustness).count { it }
+                val allPass = passColdStart && passMedRoute && passLongRoute && passExtraPss && passAvoidance && passAvoidanceAbsolute && passRobustness
+                val passedCount = listOf(passColdStart, passMedRoute, passLongRoute, passExtraPss, passAvoidance, passAvoidanceAbsolute, passRobustness).count { it }
 
                 log("==================================================")
                 log("BENCHMARK REPORT & THRESHOLD VERIFICATION: ${engine.name}")
@@ -455,17 +569,56 @@ class SpikeActivity : AppCompatActivity() {
                 log(String.format(Locale.US, "%-26s | %-16s | %-28s | %s", "3. Long Route Latency", "${longMedian} ms (med)", "<= 8000 ms (8 s)", if (passLongRoute) "PASS" else "FAIL"))
                 log(String.format(Locale.US, "%-26s | %-16s | %-28s | %s", "4. Extra Total PSS", String.format(Locale.US, "%.1f MB", extraTotalPssMb), "<= 300 MB", if (passExtraPss) "PASS" else "FAIL"))
                 log(String.format(Locale.US, "%-26s | %-16s | %-28s | %s", "5. 10-Pt Avoidance Detour", "${msAvoid10}ms (+${String.format(Locale.US, "%.0f", diff10)}m)", "<= 2x base (${avoidanceLatencyThreshold}ms) & detour", if (passAvoidance) "PASS" else "FAIL"))
-                log(String.format(Locale.US, "%-26s | %-16s | %-28s | %s", "6. Robustness (20 runs)", "$errors failures", "0 crashes / failures", if (passRobustness) "PASS" else "FAIL"))
+                log(String.format(Locale.US, "%-26s | %-16s | %-28s | %s", "6. Supplementary absolute", "${msAvoid10} ms", "<= 1000 ms (added after seeing data)", if (passAvoidanceAbsolute) "PASS" else "FAIL"))
+                log(String.format(Locale.US, "%-26s | %-16s | %-28s | %s", "7. Robustness (20 runs)", "$errors failures", "0 crashes / failures", if (passRobustness) "PASS" else "FAIL"))
                 log("--------------------------------------------------------------------------------------")
-                log("OVERALL RESULT: ${if (allPass) "ALL PASS (Candidate Meets Acceptance Criteria)" else "FAIL ($passedCount/6 criteria met)"}")
+                log("OVERALL RESULT: ${if (allPass) "ALL PASS (Candidate Meets Acceptance Criteria)" else "FAIL ($passedCount/7 criteria met)"}")
                 log("==================================================")
             } catch (t: Throwable) {
                 log("✗ BENCHMARK FAILED WITH CRITICAL EXCEPTION (${t.javaClass.name}):")
                 log(Log.getStackTraceString(t))
             } finally {
                 setButtonsEnabled(true)
+                log("BENCHMARK_FINISHED")
             }
         }
+    }
+
+    private suspend fun runDiagnosticCase(
+        engine: ValhallaRoutingEngine,
+        label: String,
+        point: LatLon,
+        baseline: RouteResult,
+        routeCall: suspend () -> RouteResult
+    ): DiagnosticMeasurement {
+        val startedAt = System.currentTimeMillis()
+        return try {
+            val result = routeCall()
+            val elapsedMs = System.currentTimeMillis() - startedAt
+            val changedVertices = countDifferingVertices(baseline.polyline, result.polyline)
+            val minimumDistance = RouteGeometry.distanceToPolylineMeters(point, result.polyline)
+            val clearance = if (minimumDistance.isNaN()) "NA" else {
+                String.format(Locale.US, "%.1f m (%s)", minimumDistance, if (minimumDistance > 15.0) "CLEAR" else "NOT_CLEAR")
+            }
+            log("$label: distance=${String.format(Locale.US, "%.1f", result.distanceM)}m latency=${elapsedMs}ms " +
+                "polylineVertices=${result.polyline.size} changedFromBaseline=$changedVertices minDistanceToPoint=$clearance")
+            DiagnosticMeasurement(elapsedMs, result)
+        } catch (t: Throwable) {
+            val elapsedMs = System.currentTimeMillis() - startedAt
+            log("$label: ERROR after ${elapsedMs}ms (${t.javaClass.simpleName}): ${t.message}")
+            DiagnosticMeasurement(elapsedMs, null)
+        }
+    }
+
+    private fun countDifferingVertices(baseline: List<LatLon>, candidate: List<LatLon>): Int {
+        val commonCount = minOf(baseline.size, candidate.size)
+        var changed = kotlin.math.abs(baseline.size - candidate.size)
+        for (index in 0 until commonCount) {
+            if (RouteGeometry.distanceMeters(baseline[index], candidate[index]) > 1.0) {
+                changed++
+            }
+        }
+        return changed
     }
 
     private fun setButtonsEnabled(enabled: Boolean) {

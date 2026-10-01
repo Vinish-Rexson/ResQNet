@@ -73,6 +73,9 @@ dependencies {
         exclude(group = "log4j", module = "log4j")
     }
     implementation(libs.valhalla.mobile)
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
+    implementation("io.github.rallista:valhalla-models:0.5.0")
+    implementation("io.github.rallista:valhalla-models-config:0.5.0")
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
