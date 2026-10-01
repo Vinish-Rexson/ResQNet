@@ -3,6 +3,16 @@ plugins {
     alias(libs.plugins.legacy.kapt)
 }
 
+fun buildConfigString(value: String): String = "\"" + value
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+    .replace("\n", "\\n") + "\""
+
+val offlinePackCatalogUrl = providers.gradleProperty("resqnet.packCatalogUrl").orNull ?: ""
+val offlinePackPublicKeyPem = providers.gradleProperty("resqnet.packPublicKeyPem").orNull ?: ""
+val debugPackCatalogUrl = providers.gradleProperty("resqnet.debugPackCatalogUrl").orNull ?: offlinePackCatalogUrl
+val debugPackPublicKeyPem = providers.gradleProperty("resqnet.debugPackPublicKeyPem").orNull ?: offlinePackPublicKeyPem
+
 android {
     namespace = "com.resqnet.app"
     compileSdk {
@@ -19,9 +29,17 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "OFFLINE_PACK_CATALOG_URL", buildConfigString(offlinePackCatalogUrl))
+        buildConfigField("String", "OFFLINE_PACK_PUBLIC_KEY_PEM", buildConfigString(offlinePackPublicKeyPem))
     }
 
     buildTypes {
+        debug {
+            // A local HTTPS fixture can be supplied without changing source:
+            // -Presqnet.debugPackCatalogUrl and -Presqnet.debugPackPublicKeyPem.
+            buildConfigField("String", "OFFLINE_PACK_CATALOG_URL", buildConfigString(debugPackCatalogUrl))
+            buildConfigField("String", "OFFLINE_PACK_PUBLIC_KEY_PEM", buildConfigString(debugPackPublicKeyPem))
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -33,6 +51,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    buildFeatures {
+        buildConfig = true
     }
 
     packaging {
@@ -73,6 +94,7 @@ dependencies {
         exclude(group = "log4j", module = "log4j")
     }
     implementation(libs.valhalla.mobile)
+    implementation("org.maplibre.gl:android-sdk:11.8.0")
     implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
     implementation("io.github.rallista:valhalla-models:0.5.0")
     implementation("io.github.rallista:valhalla-models-config:0.5.0")

@@ -1,0 +1,1 @@
+{"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"id": "test-mumbai", "name": "Mumbai test destination", "address": "Test fixture only", "notes": "Not an emergency shelter", "source": "ResQNet test fixture", "verificationStatus": "unverified", "lastVerified": null}, "geometry": {"type": "Point", "coordinates": [72.8777, 19.076]}}]}
