@@ -16,6 +16,7 @@ fun setupBottomNav(activity: Activity, currentTabId: Int) {
             R.id.nav_contacts -> Intent(activity, ContactsActivity::class.java)
             R.id.nav_circles -> Intent(activity, CirclesActivity::class.java)
             R.id.nav_mesh -> Intent(activity, MeshControlActivity::class.java)
+            R.id.nav_navigate -> Intent(activity, NavigateActivity::class.java)
             else -> null
         }
 

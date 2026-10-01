@@ -5,12 +5,16 @@
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".ResQNetApplication"
@@ -25,6 +29,7 @@
 
         <activity android:name=".ui.DiagnosticsActivity" />
         <activity android:name=".ui.MeshControlActivity" />
+        <activity android:name=".ui.NavigateActivity" android:label="Navigate" />
         <activity android:name=".ui.ChatActivity" />
         <activity android:name=".ui.ContactsActivity" android:label="Contacts" />
         <activity android:name=".ui.DirectConversationActivity" android:label="Direct Message" />
@@ -39,6 +44,10 @@
             android:name=".mesh.MeshService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+        <service
+            android:name=".navigation.NavigationForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
         <activity
             android:name=".ui.CirclesActivity"
             android:exported="false" />

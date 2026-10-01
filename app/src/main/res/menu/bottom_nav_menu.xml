@@ -16,4 +16,8 @@
         android:id="@+id/nav_mesh"
         android:icon="@drawable/ic_mesh"
         android:title="Mesh" />
+    <item
+        android:id="@+id/nav_navigate"
+        android:icon="@drawable/ic_nav_navigate"
+        android:title="Navigate" />
 </menu>
