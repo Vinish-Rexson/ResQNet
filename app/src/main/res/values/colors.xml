@@ -9,35 +9,49 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <!-- B&W design system -->
-    <color name="resq_primary">#000000</color>
-    <color name="resq_primary_dark">#000000</color>
-    <color name="resq_accent">#000000</color>
+    <!-- Recommended colour palette -->
+    <color name="palette_deep_navy">#172B3A</color>
+    <color name="palette_amber">#F2B544</color>
+    <color name="palette_warm_white">#F5F3ED</color>
+    <color name="palette_teal">#438477</color>
+    <color name="palette_alert">#D95C50</color>
+
+    <!-- ResQNet Brand System -->
+    <color name="resq_primary">#172B3A</color>
+    <color name="resq_primary_dark">#101E29</color>
+    <color name="resq_accent">#F2B544</color>
 
     <!-- Surfaces -->
-    <color name="surface">#F5F5F5</color>
+    <color name="surface">#F5F3ED</color>
     <color name="surface_card">#FFFFFF</color>
+    <color name="surface_input">#FFFFFF</color>
 
     <!-- Chat bubbles -->
-    <color name="bubble_outgoing">#000000</color>
-    <color name="bubble_incoming">#EDEDEE</color>
+    <color name="bubble_outgoing">#172B3A</color>
+    <color name="bubble_incoming">#FFFFFF</color>
 
     <!-- Typography -->
-    <color name="text_primary">#000000</color>
-    <color name="text_muted">#888888</color>
+    <color name="text_primary">#172B3A</color>
+    <color name="text_muted">#778594</color>
     <color name="text_on_dark">#FFFFFF</color>
+    <color name="text_accent">#F2B544</color>
 
     <!-- Dividers / strokes -->
-    <color name="color_divider">#E0E0E0</color>
-    <color name="color_avatar_bg">#000000</color>
+    <color name="color_divider">#E6E2D8</color>
+    <color name="color_avatar_bg">#172B3A</color>
 
-    <!-- Status — greyscale with red for Need Help -->
-    <color name="color_safe">#000000</color>
-    <color name="color_need_help">#CC0000</color>
-    <color name="color_pending">#555555</color>
-    <color name="color_unknown">#999999</color>
-    <color name="color_delivered">#000000</color>
+    <!-- Status -->
+    <color name="color_safe">#438477</color>
+    <color name="color_need_help">#D95C50</color>
+    <color name="color_pending">#F2B544</color>
+    <color name="color_unknown">#94A3B8</color>
+    <color name="color_delivered">#172B3A</color>
 
-    <!-- Destructive -->
-    <color name="alert">#CC0000</color>
+    <!-- Destructive / Alert -->
+    <color name="alert">#D95C50</color>
+
+    <!-- Badge tones -->
+    <color name="palette_amber_subtle">#1AF2B544</color>
+    <color name="palette_teal_subtle">#14438477</color>
+    <color name="palette_teal_border">#33438477</color>
 </resources>

@@ -54,6 +54,7 @@ class CircleDetailActivity : AppCompatActivity() {
         val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        setupMeshAppBarBadge(this, toolbar)
         
         drawerLayout = findViewById(R.id.drawerLayout)
 

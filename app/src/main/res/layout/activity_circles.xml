@@ -3,24 +3,27 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:background="@color/surface">
 
     <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@id/bottomNav">
+        android:fitsSystemWindows="true"
+        android:layout_above="@id/bottomNavDivider">
 
         <com.google.android.material.appbar.AppBarLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/surface_card"
+            android:fitsSystemWindows="true"
+            android:background="@color/surface"
             app:elevation="0dp">
 
             <androidx.appcompat.widget.Toolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
-                android:background="@color/surface_card"
+                android:background="@color/surface"
                 app:titleTextColor="@color/text_primary"
                 app:navigationIconTint="@color/text_primary" />
 
@@ -28,7 +31,7 @@
                 android:id="@+id/tabLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/surface_card"
+                android:background="@color/surface"
                 app:tabTextColor="@color/text_muted"
                 app:tabSelectedTextColor="@color/text_primary"
                 app:tabIndicatorColor="@color/text_primary"
@@ -47,7 +50,7 @@
             android:layout_height="match_parent"
             app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
-        <!-- Black FAB -->
+        <!-- Amber FAB -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fabCreateCircle"
             android:layout_width="wrap_content"
@@ -55,22 +58,31 @@
             android:layout_gravity="bottom|end"
             android:layout_margin="20dp"
             android:contentDescription="@string/action_create_circle"
-            app:backgroundTint="@color/resq_primary"
-            app:tint="@color/white"
+            app:backgroundTint="@color/palette_amber"
+            app:tint="@color/resq_primary"
             app:srcCompat="@android:drawable/ic_input_add" />
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    <!-- Bottom Nav Divider -->
+    <View
+        android:id="@+id/bottomNavDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_above="@id/bottomNav"
+        android:background="@color/color_divider" />
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:background="@color/surface_card"
+        android:background="@color/surface"
+        app:backgroundTint="@color/surface"
         app:menu="@menu/bottom_nav_menu"
         app:itemIconTint="@color/bottom_nav_color"
         app:itemTextColor="@color/bottom_nav_color"
-        app:elevation="8dp"
+        app:elevation="0dp"
         app:labelVisibilityMode="labeled" />
 
 </RelativeLayout>

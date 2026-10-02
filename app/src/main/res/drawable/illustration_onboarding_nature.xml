@@ -1,0 +1,46 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="280dp"
+    android:height="110dp"
+    android:viewportWidth="280"
+    android:viewportHeight="110">
+
+    <!-- Soft background mountain peaks -->
+    <path
+        android:fillColor="#E2E8F0"
+        android:pathData="M70,85 L140,25 L210,85 Z" />
+    <path
+        android:fillColor="#CBD5E1"
+        android:pathData="M140,85 L195,38 L250,85 Z" />
+
+    <!-- Foreground pine trees (right side, layered) -->
+    <!-- Tree 1 -->
+    <path
+        android:fillColor="#334155"
+        android:pathData="M235,45 L250,65 L245,65 L255,80 L248,80 L258,95 L212,95 L222,80 L215,80 L225,65 L220,65 Z" />
+    <path
+        android:fillColor="#1E293B"
+        android:pathData="M233,95 L237,95 L237,102 L233,102 Z" />
+
+    <!-- Tree 2 (front right) -->
+    <path
+        android:fillColor="#1E293B"
+        android:pathData="M255,55 L267,70 L262,70 L272,83 L266,83 L275,96 L235,96 L244,83 L238,83 L248,70 L243,70 Z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M253,96 L257,96 L257,103 L253,103 Z" />
+
+    <!-- Tree 3 (smaller background) -->
+    <path
+        android:fillColor="#64748B"
+        android:pathData="M210,60 L220,72 L216,72 L224,84 L219,84 L227,95 L193,95 L201,84 L196,84 L204,72 L200,72 Z" />
+
+    <!-- Ground curve / soft hill line -->
+    <path
+        android:fillColor="#F1F5F9"
+        android:pathData="M0,95 Q100,78 200,90 T280,95 L280,110 L0,110 Z" />
+
+    <!-- Warm sun circle in background -->
+    <path
+        android:fillColor="#FDE68A"
+        android:pathData="M190,30 A12,12 0 1,0 190,54 A12,12 0 1,0 190,30 Z" />
+</vector>

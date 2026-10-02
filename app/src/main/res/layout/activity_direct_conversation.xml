@@ -3,21 +3,23 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:orientation="vertical"
     android:background="@color/surface">
 
-    <!-- AppBar — white with contact name -->
+    <!-- AppBar -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/surface_card"
+        android:fitsSystemWindows="true"
+        android:background="@color/surface"
         app:elevation="0dp">
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/surface_card"
+            android:background="@color/surface"
             app:titleTextColor="@color/text_primary"
             app:navigationIconTint="@color/text_primary" />
 
@@ -38,7 +40,8 @@
             android:id="@+id/dmMessageList"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="16dp"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp"
             android:clipToPadding="false" />
 
         <TextView
@@ -50,7 +53,7 @@
             android:padding="32dp"
             android:text="@string/empty_dm"
             android:textColor="@color/text_muted"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:lineSpacingMultiplier="1.4"
             android:visibility="gone" />
 
@@ -67,10 +70,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingHorizontal="12dp"
+        android:paddingHorizontal="16dp"
         android:paddingTop="10dp"
         android:paddingBottom="10dp"
-        android:background="@color/surface_card">
+        android:background="@color/surface">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -86,20 +89,26 @@
                 android:hint="@string/hint_message_dm"
                 android:maxLines="4"
                 android:inputType="textCapSentences|textMultiLine"
-                android:background="@drawable/bg_input_field"
+                android:background="@drawable/bg_input_box"
                 android:paddingHorizontal="16dp"
-                android:paddingVertical="10dp"
-                android:textSize="15sp"
+                android:paddingVertical="11dp"
+                android:textSize="14sp"
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_muted" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/dmSendButton"
-                android:layout_width="80dp"
-                android:layout_height="44dp"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
                 android:layout_marginStart="10dp"
-                android:text="Send"
-                android:textSize="14sp" />
+                app:backgroundTint="@color/palette_amber"
+                app:cornerRadius="23dp"
+                app:icon="@drawable/ic_send_plane"
+                app:iconTint="@color/resq_primary"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                android:padding="0dp"
+                app:elevation="0dp" />
 
         </LinearLayout>
 

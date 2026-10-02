@@ -17,11 +17,18 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.snackbar.Snackbar
 import com.resqnet.app.R
 import com.resqnet.app.ResQNetApplication
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import kotlinx.coroutines.launch
 
 class ChatActivity : AppCompatActivity() {
     private val model by viewModels<ChatViewModel>()
     private val adapter = MessageAdapter()
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* permissions handled */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,6 +39,11 @@ class ChatActivity : AppCompatActivity() {
             return
         }
         setContentView(R.layout.activity_chat)
+
+        // Request all permissions immediately when ChatActivity opens
+        if (!PermissionHelper.hasPermissions(this)) {
+            permissionLauncher.launch(PermissionHelper.getRequiredPermissions())
+        }
 
         // Toolbar
         val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
@@ -81,6 +93,16 @@ class ChatActivity : AppCompatActivity() {
 
         // Bottom Navigation
         setupBottomNav(this, R.id.nav_chat)
+
+        // Hide bottom navigation bar when soft keyboard is open so message input rests cleanly on keyboard
+        val bottomNav = findViewById<View>(R.id.bottomNav)
+        val bottomNavDivider = findViewById<View>(R.id.bottomNavDivider)
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content)) { v, insets ->
+            val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+            bottomNav?.visibility = if (imeVisible) View.GONE else View.VISIBLE
+            bottomNavDivider?.visibility = if (imeVisible) View.GONE else View.VISIBLE
+            ViewCompat.onApplyWindowInsets(v, insets)
+        }
 
         // Observe state
         lifecycleScope.launch {

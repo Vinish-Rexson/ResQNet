@@ -115,23 +115,33 @@ class CirclesActivity : AppCompatActivity() {
         Snackbar.make(findViewById(android.R.id.content), msg, Snackbar.LENGTH_LONG).show()
 
     private fun showCreateDialog() {
-        val input = EditText(this).apply {
-            hint = getString(R.string.hint_circle_name)
-            setPadding(48, 24, 48, 24)
-        }
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.title_create_circle))
-            .setView(input)
-            .setPositiveButton(getString(R.string.action_create)) { _, _ ->
-                val name = input.text.toString().trim()
-                if (name.isNotEmpty()) {
-                    model.createCircle(name) { err ->
-                        if (err != null) showSnack(err) else showSnack("Circle created")
-                    }
+        val dialogView = layoutInflater.inflate(R.layout.dialog_create_circle, null)
+        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setView(dialogView)
+            .create()
+
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+
+        val input = dialogView.findViewById<EditText>(R.id.dialogCircleNameInput)
+        val btnCancel = dialogView.findViewById<View>(R.id.dialogCancelButton)
+        val btnCreate = dialogView.findViewById<View>(R.id.dialogCreateButton)
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+
+        btnCreate.setOnClickListener {
+            val name = input.text.toString().trim()
+            if (name.isNotEmpty()) {
+                dialog.dismiss()
+                model.createCircle(name) { err ->
+                    if (err != null) showSnack(err) else showSnack("Circle created")
                 }
+            } else {
+                input.error = "Please enter a circle name"
             }
-            .setNegativeButton(getString(R.string.action_cancel), null)
-            .show()
+        }
+
+        dialog.show()
+        input.requestFocus()
     }
 
     private fun buildTabView(adapter: RecyclerView.Adapter<*>, emptyText: String): FrameLayout {

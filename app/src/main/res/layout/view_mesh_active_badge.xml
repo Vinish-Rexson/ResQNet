@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/meshActiveBadge"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/bg_mesh_active_badge"
+    android:paddingStart="8dp"
+    android:paddingEnd="10dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackgroundBorderless"
+    android:visibility="gone">
+
+    <!-- Pulsing/Active green-teal dot -->
+    <View
+        android:layout_width="7dp"
+        android:layout_height="7dp"
+        android:background="@drawable/bg_status_dot_active"
+        android:layout_marginEnd="6dp" />
+
+    <TextView
+        android:id="@+id/badgeMeshText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="MESH ACTIVE"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.06"
+        android:textColor="@color/palette_teal" />
+
+</LinearLayout>

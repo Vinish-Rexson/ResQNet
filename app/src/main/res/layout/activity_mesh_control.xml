@@ -3,105 +3,174 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:background="@color/surface">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fitsSystemWindows="true"
+        android:background="@color/surface"
+        app:elevation="0dp">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/surface"
+            app:title="Mesh Control"
+            app:titleTextColor="@color/text_primary" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/color_divider" />
+
+    </com.google.android.material.appbar.AppBarLayout>
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@id/bottomNav">
+        android:layout_below="@id/appBarLayout"
+        android:layout_above="@id/bottomNavDivider">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="16dp">
 
-            <TextView
+            <!-- Identity Card -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Identity"
-                android:textSize="12sp"
-                android:textAllCaps="true"
-                android:letterSpacing="0.08"
-                android:textColor="@color/text_muted" />
+                android:orientation="vertical"
+                android:background="@drawable/bg_card_rounded"
+                android:padding="16dp"
+                android:layout_marginBottom="12dp">
 
-            <TextView
-                android:id="@+id/identityText"
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Identity"
+                    android:textSize="12sp"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.08"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_muted" />
+
+                <TextView
+                    android:id="@+id/identityText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:layout_marginTop="8dp"
+                    android:lineSpacingMultiplier="1.2" />
+
+            </LinearLayout>
+
+            <!-- Mesh Status & Control Card -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:layout_marginTop="6dp" />
+                android:orientation="vertical"
+                android:background="@drawable/bg_card_rounded"
+                android:padding="20dp"
+                android:layout_marginBottom="12dp">
 
-            <TextView
-                android:id="@+id/controlStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Mesh stopped"
-                android:textSize="26sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginTop="40dp" />
+                <TextView
+                    android:id="@+id/controlStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Mesh stopped"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary" />
 
-            <TextView
-                android:id="@+id/permissionStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text_muted"
-                android:textSize="14sp"
-                android:layout_marginTop="28dp"
-                android:lineSpacingMultiplier="1.4" />
+                <TextView
+                    android:id="@+id/permissionStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_muted"
+                    android:textSize="13sp"
+                    android:layout_marginTop="12dp"
+                    android:lineSpacingMultiplier="1.3" />
 
-            <Button
-                android:id="@+id/permissionButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:text="Grant nearby devices access"
-                android:layout_marginTop="10dp"
-                app:strokeColor="@color/text_primary"
-                android:textColor="@color/text_primary" />
+                <Button
+                    android:id="@+id/permissionButton"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="Grant nearby devices access"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="12dp"
+                    app:strokeColor="@color/text_primary"
+                    android:textColor="@color/text_primary"
+                    app:cornerRadius="24dp" />
 
-            <Button
-                android:id="@+id/startMeshButton"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="Start mesh"
-                android:layout_marginTop="32dp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/startMeshButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:text="Start mesh"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/white"
+                    app:backgroundTint="@color/resq_primary"
+                    app:cornerRadius="26dp"
+                    android:layout_marginTop="20dp" />
 
-            <Button
-                android:id="@+id/stopMeshButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:text="Stop mesh"
-                android:layout_marginTop="10dp"
-                app:strokeColor="@color/text_primary"
-                android:textColor="@color/text_primary" />
+                <Button
+                    android:id="@+id/stopMeshButton"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:text="Stop mesh"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="12dp"
+                    app:strokeColor="@color/alert"
+                    android:textColor="@color/alert"
+                    app:cornerRadius="26dp" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Mesh mode keeps a visible notification while scanning, advertising, synchronizing history, and forwarding messages."
-                android:textColor="@color/text_muted"
-                android:textSize="13sp"
-                android:lineSpacingMultiplier="1.4"
-                android:layout_marginTop="24dp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Mesh mode keeps a visible notification while scanning, advertising, synchronizing history, and forwarding messages."
+                    android:textColor="@color/text_muted"
+                    android:textSize="12sp"
+                    android:lineSpacingMultiplier="1.3"
+                    android:layout_marginTop="16dp" />
+
+            </LinearLayout>
 
         </LinearLayout>
     </ScrollView>
+
+    <!-- Bottom Nav Divider -->
+    <View
+        android:id="@+id/bottomNavDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_above="@id/bottomNav"
+        android:background="@color/color_divider" />
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:background="@color/surface_card"
+        android:background="@color/surface"
+        app:backgroundTint="@color/surface"
         app:menu="@menu/bottom_nav_menu"
         app:itemIconTint="@color/bottom_nav_color"
         app:itemTextColor="@color/bottom_nav_color"
-        app:elevation="8dp"
+        app:elevation="0dp"
         app:labelVisibilityMode="labeled" />
 
 </RelativeLayout>

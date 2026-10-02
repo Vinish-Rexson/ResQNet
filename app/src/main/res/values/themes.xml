@@ -14,11 +14,21 @@
         <item name="colorSurface">@color/surface_card</item>
         <item name="colorOnSurface">@color/text_primary</item>
         <!-- Status / nav bars -->
-        <item name="android:statusBarColor">@color/resq_primary</item>
+        <item name="android:statusBarColor">@color/white</item>
         <item name="android:navigationBarColor">@color/white</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o">true</item>
+        <!-- Disable elevation tinting so white is always pure white -->
+        <item name="elevationOverlayEnabled">false</item>
+        <item name="bottomNavigationStyle">@style/Widget.ResQNet.BottomNavigationView</item>
         <!-- Filled buttons are black with rounded corners -->
         <item name="materialButtonStyle">@style/Widget.ResQNet.Button</item>
+    </style>
+
+    <style name="Widget.ResQNet.BottomNavigationView" parent="Widget.MaterialComponents.BottomNavigationView">
+        <item name="android:background">@color/white</item>
+        <item name="backgroundTint">@color/white</item>
+        <item name="elevation">0dp</item>
     </style>
 
     <style name="Widget.ResQNet.Button" parent="Widget.MaterialComponents.Button">

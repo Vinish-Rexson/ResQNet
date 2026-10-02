@@ -21,11 +21,11 @@ class MeshControlActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState); setContentView(R.layout.activity_mesh_control); title = "Mesh control"
         val app = application as ResQNetApplication
         findViewById<TextView>(R.id.identityText).text = "${app.profile.displayName}\n${app.signer.fingerprint}"
-        findViewById<Button>(R.id.permissionButton).setOnClickListener { permissions.launch(requiredPermissions()) }
+        findViewById<Button>(R.id.permissionButton).setOnClickListener { permissions.launch(PermissionHelper.getRequiredPermissions()) }
         findViewById<Button>(R.id.startMeshButton).setOnClickListener {
-            if (requiredPermissions().all { checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED })
+            if (PermissionHelper.hasPermissions(this))
                 MeshService.command(this, MeshService.ACTION_START)
-            else permissions.launch(requiredPermissions())
+            else permissions.launch(PermissionHelper.getRequiredPermissions())
         }
         findViewById<Button>(R.id.stopMeshButton).setOnClickListener { MeshService.command(this, MeshService.ACTION_STOP) }
         
@@ -41,11 +41,8 @@ class MeshControlActivity : AppCompatActivity() {
     }
     override fun onResume() { super.onResume(); updatePermissionText() }
     private fun updatePermissionText() {
-        val granted = requiredPermissions().all { checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED }
-        findViewById<TextView>(R.id.permissionStatus).text = if (granted) "Nearby devices permission granted" else "Nearby devices permission required"
+        val granted = PermissionHelper.hasPermissions(this)
+        findViewById<TextView>(R.id.permissionStatus).text = if (granted) "All required permissions granted" else "Required permissions missing"
         findViewById<Button>(R.id.permissionButton).visibility = if (granted) android.view.View.GONE else android.view.View.VISIBLE
     }
-    private fun requiredPermissions(): Array<String> = if (Build.VERSION.SDK_INT >= 31) arrayOf(
-        Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_ADVERTISE, Manifest.permission.BLUETOOTH_CONNECT
-    ) else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
 }

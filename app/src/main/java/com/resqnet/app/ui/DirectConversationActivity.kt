@@ -47,6 +47,7 @@ class DirectConversationActivity : AppCompatActivity() {
             title = model.remoteDisplayName
             setDisplayHomeAsUpEnabled(true)
         }
+        setupMeshAppBarBadge(this)
 
         val list = findViewById<RecyclerView>(R.id.dmMessageList).apply {
             layoutManager = LinearLayoutManager(this@DirectConversationActivity).apply {
