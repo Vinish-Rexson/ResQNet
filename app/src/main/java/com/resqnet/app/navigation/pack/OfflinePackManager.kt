@@ -104,6 +104,46 @@ class OfflinePackManager(
         }
     }
 
+    /** Installs a region pack shipped in this APK through the normal install path. */
+    fun hasBundledAsset(assetName: String): Boolean = runCatching {
+        context.assets.list("")?.contains(assetName) == true
+    }.getOrDefault(false)
+
+    suspend fun installBundledAsset(assetName: String): InstalledRegionPack = withContext(Dispatchers.IO) {
+        if (!hasBundledAsset(assetName)) {
+            throw PackFailure.Io("The bundled offline map is not available in this app build")
+        }
+        stagingRoot.mkdirs()
+        val staged = File.createTempFile("bundled-", ".zip", stagingRoot)
+        try {
+            mutableState.value = OfflinePackState.Importing(0L, null)
+            var copied = 0L
+            context.assets.open(assetName).use { input ->
+                staged.outputStream().use { output ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        requireStagingCapacity(copied + read)
+                        output.write(buffer, 0, read)
+                        copied += read
+                        mutableState.value = OfflinePackState.Importing(copied, null)
+                    }
+                }
+            }
+            installStagedArchive(staged)
+        } catch (failure: PackFailure) {
+            mutableState.value = OfflinePackState.Failed(failure)
+            throw failure
+        } catch (error: Throwable) {
+            val failure = PackFailure.Io("Could not install bundled offline map", error)
+            mutableState.value = OfflinePackState.Failed(failure)
+            throw failure
+        } finally {
+            staged.delete()
+        }
+    }
+
     fun enqueueDownload(entry: PackCatalogEntry): Long {
         validateCatalogEntry(entry)
         val request = DownloadManager.Request(Uri.parse(entry.archiveUrl)).apply {
