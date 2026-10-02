@@ -38,7 +38,10 @@
             android:name=".ui.DirectConversationActivity"
             android:label="Direct Message"
             android:windowSoftInputMode="stateHidden|adjustResize" />
-        <activity android:name=".ui.SetupActivity" android:exported="true">
+        <activity
+            android:name=".ui.SetupActivity"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

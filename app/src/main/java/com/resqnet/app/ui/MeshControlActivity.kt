@@ -29,6 +29,19 @@ class MeshControlActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.stopMeshButton).setOnClickListener { MeshService.command(this, MeshService.ACTION_STOP) }
         
+        findViewById<Button>(R.id.btnEditProfile)?.setOnClickListener {
+            startActivity(android.content.Intent(this, SetupActivity::class.java).putExtra("IS_EDITING", true))
+        }
+        findViewById<Button>(R.id.btnLogout)?.setOnClickListener {
+            MeshService.command(this, MeshService.ACTION_STOP)
+            app.profile.displayName = ""
+            val intent = android.content.Intent(this, SetupActivity::class.java).apply {
+                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+            startActivity(intent)
+            finish()
+        }
+        
         setupBottomNav(this, R.id.nav_mesh)
         
         lifecycleScope.launch { repeatOnLifecycle(Lifecycle.State.STARTED) { MeshRuntime.state.collect {
@@ -39,7 +52,12 @@ class MeshControlActivity : AppCompatActivity() {
             findViewById<Button>(R.id.stopMeshButton).visibility = if (isActive) android.view.View.VISIBLE else android.view.View.GONE
         } } }
     }
-    override fun onResume() { super.onResume(); updatePermissionText() }
+    override fun onResume() { 
+        super.onResume()
+        val app = application as ResQNetApplication
+        findViewById<TextView>(R.id.identityText).text = "${app.profile.displayName}\n${app.signer.fingerprint}"
+        updatePermissionText() 
+    }
     private fun updatePermissionText() {
         val granted = PermissionHelper.hasPermissions(this)
         findViewById<TextView>(R.id.permissionStatus).text = if (granted) "All required permissions granted" else "Required permissions missing"

@@ -71,6 +71,38 @@
                     android:layout_marginTop="8dp"
                     android:lineSpacingMultiplier="1.2" />
 
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="12dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnEditProfile"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Change Name"
+                        android:textSize="13sp"
+                        android:textColor="@color/palette_deep_navy"
+                        app:backgroundTint="@color/palette_amber"
+                        app:cornerRadius="8dp"
+                        android:layout_marginEnd="8dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnLogout"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Log Out"
+                        android:textSize="13sp"
+                        android:textColor="@color/palette_alert"
+                        app:strokeColor="@color/palette_alert"
+                        app:strokeWidth="1dp"
+                        app:cornerRadius="8dp" />
+                </LinearLayout>
+
             </LinearLayout>
 
             <!-- Mesh Status & Control Card -->
