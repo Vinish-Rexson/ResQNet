@@ -14,6 +14,14 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.view.View
+import android.view.Gravity
+import android.widget.ArrayAdapter
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
+import android.widget.SeekBar
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,8 +32,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.resqnet.app.ResQNetApplication
 import com.resqnet.app.R
 import com.resqnet.app.navigation.GeoPoint
+import com.resqnet.app.navigation.AvoidanceArea
+import com.resqnet.app.navigation.HazardReport
+import com.resqnet.app.navigation.HazardType
 import com.resqnet.app.navigation.InstalledRegionPack
 import com.resqnet.app.navigation.NavigationForegroundService
 import com.resqnet.app.navigation.NavigationState
@@ -47,6 +60,8 @@ import org.maplibre.android.annotations.PolylineOptions
 import org.maplibre.android.annotations.Polyline
 import org.maplibre.android.annotations.Marker
 import org.maplibre.android.annotations.IconFactory
+import org.maplibre.android.annotations.Polygon
+import org.maplibre.android.annotations.PolygonOptions
 
 private const val PLACEHOLDER_BASEMAP_MAX_BYTES = 64 * 1024L
 private const val BUNDLED_MUMBAI_PACK_ASSET = "mumbai-demo-pack.zip"
@@ -72,6 +87,10 @@ class NavigateActivity : AppCompatActivity() {
     private var navigationDestination: GeoPoint? = null
     private var currentLocationMarker: Marker? = null
     private var activeRoute: Polyline? = null
+    private val hazardPolygons = mutableListOf<Polygon>()
+    private var hazardReports: List<HazardReport> = emptyList()
+    private var placingHazard = false
+    private var previewIgnoringHazards = false
     private var currentLocation: GeoPoint? = null
     private var bundledPackInstallRequested = false
     private var nearestRouteInProgress = false
@@ -146,6 +165,7 @@ class NavigateActivity : AppCompatActivity() {
             }
         }
         findViewById<MaterialButton>(R.id.nearestShelterButton).setOnClickListener { selectNearestShelter() }
+        findViewById<MaterialButton>(R.id.reportHazardButton).setOnClickListener { beginHazardPlacement() }
         findViewById<MaterialButton>(R.id.startNavigationButton).setOnClickListener { requestNavigationPermission() }
         findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.myLocationButton)
             .setOnClickListener { requestCurrentLocation() }
@@ -165,6 +185,14 @@ class NavigateActivity : AppCompatActivity() {
                     if (navigation is NavigationState.Active) routeSummary.text = "${navigation.nextInstruction} · ${navigation.distanceMeters.toInt()} m remaining"
                     if (navigation is NavigationState.Arrived) routeSummary.text = "Arrived at destination"
                     if (navigation is NavigationState.Failed) showError(navigation.message)
+                }
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                (application as ResQNetApplication).hazards.observeActive().collect { reports ->
+                    hazardReports = reports
+                    renderHazards()
                 }
             }
         }
@@ -284,12 +312,149 @@ class NavigateActivity : AppCompatActivity() {
             map.addMarker(MarkerOptions().position(point).title(if (pinnedStart == pin) "Start" else "Destination"))
             true
         }
+        map.addOnMapClickListener { point ->
+            val selected = GeoPoint(point.latitude, point.longitude)
+            if (placingHazard) {
+                placingHazard = false
+                findViewById<MaterialButton>(R.id.reportHazardButton).text = "Report"
+                showHazardEditor(selected)
+                true
+            } else {
+                hazardReports.firstOrNull { distanceMeters(selected, it.center) <= it.radiusMeters }
+                    ?.let(::showHazardDetails)
+                false
+            }
+        }
         currentLocation?.let { point -> showCurrentLocationMarker(point, centerMap = false) }
+        renderHazards()
         pendingTargetCoordinate?.let { point ->
             val label = pendingTargetLabel ?: "Shared Location"
             pendingTargetCoordinate = null
             pendingTargetLabel = null
             focusOnTargetCoordinate(point, label)
+        }
+    }
+
+    private fun beginHazardPlacement() {
+        if (map == null) {
+            showError("Wait for the map to load before reporting an area")
+            return
+        }
+        placingHazard = !placingHazard
+        findViewById<MaterialButton>(R.id.reportHazardButton).text = if (placingHazard) "Cancel" else "Report"
+        routeSummary.text = if (placingHazard) "Tap the affected flood or unsafe area on the map." else "Hazard reporting cancelled."
+    }
+
+    private fun showHazardEditor(center: GeoPoint, existing: HazardReport? = null) {
+        val dialog = BottomSheetDialog(this)
+        val padding = (20 * resources.displayMetrics.density).toInt()
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(padding, padding, padding, padding)
+        }
+        content.addView(TextView(this).apply {
+            text = if (existing == null) "Report area" else "Edit report"
+            textSize = 20f
+            setTextColor(Color.BLACK)
+        })
+        content.addView(TextView(this).apply {
+            text = "This report stays on this device and is used to avoid the area while routing."
+            setPadding(0, padding / 3, 0, padding / 2)
+        })
+        val typeGroup = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
+        val flood = RadioButton(this).apply { id = View.generateViewId(); text = "Flood" }
+        val unsafe = RadioButton(this).apply { id = View.generateViewId(); text = "Unsafe area" }
+        typeGroup.addView(flood); typeGroup.addView(unsafe)
+        typeGroup.check(if (existing?.type == HazardType.UNSAFE_AREA) unsafe.id else flood.id)
+        content.addView(typeGroup)
+        val radiusLabel = TextView(this).apply { setPadding(0, padding / 2, 0, 0) }
+        val radius = SeekBar(this).apply {
+            max = (AvoidanceArea.MAX_RADIUS_METERS - AvoidanceArea.MIN_RADIUS_METERS) / 25
+            progress = ((existing?.radiusMeters ?: HazardType.FLOOD.defaultRadiusMeters) - AvoidanceArea.MIN_RADIUS_METERS) / 25
+        }
+        fun selectedType() = if (typeGroup.checkedRadioButtonId == unsafe.id) HazardType.UNSAFE_AREA else HazardType.FLOOD
+        fun updateRadiusLabel() { radiusLabel.text = "Avoidance radius: ${AvoidanceArea.MIN_RADIUS_METERS + radius.progress * 25} m" }
+        updateRadiusLabel()
+        radius.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) = updateRadiusLabel()
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
+        typeGroup.setOnCheckedChangeListener { _, _ ->
+            if (existing == null) {
+                radius.progress = (selectedType().defaultRadiusMeters - AvoidanceArea.MIN_RADIUS_METERS) / 25
+            }
+        }
+        content.addView(radiusLabel); content.addView(radius)
+        content.addView(TextView(this).apply { text = "Expires after"; setPadding(0, padding / 2, 0, 0) })
+        val expiry = Spinner(this)
+        val expiryHours = listOf(1, 6, 12, 24)
+        expiry.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, expiryHours.map { "$it hour${if (it == 1) "" else "s"}" })
+        val defaultHours = ((existing?.expiresAt?.minus(System.currentTimeMillis()) ?: selectedType().defaultDurationMillis) / (60 * 60 * 1000L)).toInt()
+        expiry.setSelection(expiryHours.indexOf(defaultHours).takeIf { it >= 0 } ?: if (existing?.type == HazardType.UNSAFE_AREA) 3 else 1)
+        content.addView(expiry)
+        val note = EditText(this).apply {
+            hint = "Optional note"
+            setText(existing?.note.orEmpty())
+            setSingleLine(false)
+            maxLines = 3
+            setPadding(0, padding / 2, 0, padding / 2)
+        }
+        content.addView(note)
+        val actions = LinearLayout(this).apply { gravity = Gravity.END; orientation = LinearLayout.HORIZONTAL }
+        val cancel = MaterialButton(this).apply { text = "Cancel" }
+        val save = MaterialButton(this).apply { text = if (existing == null) "Save report" else "Save changes" }
+        actions.addView(cancel); actions.addView(save); content.addView(actions)
+        cancel.setOnClickListener { dialog.dismiss() }
+        save.setOnClickListener {
+            val type = selectedType()
+            val radiusMeters = AvoidanceArea.MIN_RADIUS_METERS + radius.progress * 25
+            val expiresAt = System.currentTimeMillis() + expiryHours[expiry.selectedItemPosition] * 60 * 60 * 1000L
+            lifecycleScope.launch {
+                runCatching {
+                    if (existing == null) (application as ResQNetApplication).hazards.create(type, center, radiusMeters, expiresAt, note.text?.toString())
+                    else (application as ResQNetApplication).hazards.update(existing, type, radiusMeters, expiresAt, note.text?.toString())
+                }.onSuccess {
+                    dialog.dismiss()
+                    routeSummary.text = "${type.label} report saved. New routes will avoid this area."
+                }.onFailure { showError(it.message ?: "Could not save report") }
+            }
+        }
+        dialog.setContentView(content)
+        dialog.show()
+    }
+
+    private fun showHazardDetails(report: HazardReport) {
+        val remainingHours = ((report.expiresAt - System.currentTimeMillis()).coerceAtLeast(0) / (60 * 60 * 1000L)).coerceAtLeast(1)
+        MaterialAlertDialogBuilder(this)
+            .setTitle(report.type.label)
+            .setMessage("Avoidance radius: ${report.radiusMeters} m\nExpires in about $remainingHours hour(s)" + report.note?.let { "\n\n$it" }.orEmpty())
+            .setNegativeButton("Delete") { _, _ -> lifecycleScope.launch { (application as ResQNetApplication).hazards.delete(report.id) } }
+            .setNeutralButton("Edit") { _, _ -> showHazardEditor(report.center, report) }
+            .setPositiveButton("Mark resolved") { _, _ -> lifecycleScope.launch { (application as ResQNetApplication).hazards.resolve(report.id) } }
+            .show()
+    }
+
+    private fun distanceMeters(a: GeoPoint, b: GeoPoint): Double {
+        val radius = 6_371_000.0
+        val latDelta = Math.toRadians(b.latitude - a.latitude)
+        val lonDelta = Math.toRadians(b.longitude - a.longitude)
+        val h = kotlin.math.sin(latDelta / 2) * kotlin.math.sin(latDelta / 2) +
+            kotlin.math.cos(Math.toRadians(a.latitude)) * kotlin.math.cos(Math.toRadians(b.latitude)) *
+            kotlin.math.sin(lonDelta / 2) * kotlin.math.sin(lonDelta / 2)
+        return radius * 2 * kotlin.math.atan2(kotlin.math.sqrt(h), kotlin.math.sqrt(1 - h))
+    }
+
+    private fun renderHazards() {
+        val activeMap = map ?: return
+        hazardPolygons.forEach(activeMap::removePolygon)
+        hazardPolygons.clear()
+        hazardReports.forEach { report ->
+            val color = if (report.type == HazardType.FLOOD) Color.rgb(33, 150, 243) else Color.rgb(239, 108, 0)
+            val ring = report.toAvoidanceArea().toValhallaPolygon().map { coordinates -> LatLng(coordinates[1], coordinates[0]) }
+            hazardPolygons += activeMap.addPolygon(
+                PolygonOptions().addAll(ring).fillColor(Color.argb(72, Color.red(color), Color.green(color), Color.blue(color))).strokeColor(color)
+            )
         }
     }
 
@@ -395,7 +560,7 @@ class NavigateActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun selectNearestShelter() {
+    private fun selectNearestShelter(ignoreHazards: Boolean = false) {
         if (nearestRouteInProgress) return
         val start = pinnedStart
         if (start == null) {
@@ -412,34 +577,63 @@ class NavigateActivity : AppCompatActivity() {
         setStartButtonEnabled(false)
         routeSummary.text = "Finding the nearest accessible shelter…"
         lifecycleScope.launch {
-            val result = runCatching { ShelterRouteSelector(routingEngine).chooseBest(start, shelters) }.getOrNull()
+            val result = runCatching {
+                ShelterRouteSelector(routingEngine).chooseBest(start, shelters, if (ignoreHazards) emptyList() else currentAvoidanceAreas())
+            }
             nearestRouteInProgress = false
             findViewById<MaterialButton>(R.id.nearestShelterButton).apply {
                 isEnabled = true
                 text = "Nearest"
             }
-            if (result == null) routeSummary.text = "No walking route to the nearest shelter candidates was found."
-            else showRoute(result.shelter, result.route.distanceMeters, result.route.durationSeconds, result.route.geometry)
+            result.onSuccess { route ->
+                if (route == null) noSafeRoute { selectNearestShelter(ignoreHazards = true) }
+                else showRoute(route.shelter, route.route.distanceMeters, route.route.durationSeconds, route.route.geometry, ignoreHazards)
+            }.onFailure { error ->
+                if (!ignoreHazards && error is com.resqnet.app.navigation.RoutingException.NoRoute) noSafeRoute { selectNearestShelter(ignoreHazards = true) }
+                else showError(error.message ?: "Could not find a route to a shelter")
+            }
         }
     }
 
-    private fun routeToShelter(shelter: Shelter) {
+    private fun routeToShelter(shelter: Shelter, ignoreHazards: Boolean = false) {
         val start = pinnedStart
         if (start == null) {
             routeSummary.text = "Selected destination: ${shelter.name}. Long-press the map to set a start pin for a preview."
             return
         }
         lifecycleScope.launch {
-            val result = runCatching { ShelterRouteSelector(routingEngine).chooseBest(start, listOf(shelter)) }.getOrNull()
-            if (result == null) routeSummary.text = "No walking route to ${shelter.name} was found."
-            else showRoute(result.shelter, result.route.distanceMeters, result.route.durationSeconds, result.route.geometry)
+            val result = runCatching {
+                ShelterRouteSelector(routingEngine).chooseBest(start, listOf(shelter), if (ignoreHazards) emptyList() else currentAvoidanceAreas())
+            }
+            result.onSuccess { route ->
+                if (route == null) noSafeRoute { routeToShelter(shelter, ignoreHazards = true) }
+                else showRoute(route.shelter, route.route.distanceMeters, route.route.durationSeconds, route.route.geometry, ignoreHazards)
+            }.onFailure { error ->
+                if (!ignoreHazards && error is com.resqnet.app.navigation.RoutingException.NoRoute) noSafeRoute { routeToShelter(shelter, ignoreHazards = true) }
+                else showError(error.message ?: "Could not find a route to ${shelter.name}")
+            }
         }
     }
 
-    private fun showRoute(shelter: Shelter, distanceMeters: Double, durationSeconds: Double, geometry: List<GeoPoint>) {
+    private suspend fun currentAvoidanceAreas(): List<AvoidanceArea> =
+        (application as ResQNetApplication).hazards.activeNow().map(HazardReport::toAvoidanceArea)
+
+    private fun noSafeRoute(override: () -> Unit) {
+        routeSummary.text = "No route avoids the reported areas."
+        MaterialAlertDialogBuilder(this)
+            .setTitle("No safe route found")
+            .setMessage("Reported flood or unsafe areas block all available routes. You can deliberately retry without avoiding reports for this navigation session.")
+            .setNegativeButton("Keep avoiding", null)
+            .setPositiveButton("Retry ignoring reports") { _, _ -> override() }
+            .show()
+    }
+
+    private fun showRoute(shelter: Shelter, distanceMeters: Double, durationSeconds: Double, geometry: List<GeoPoint>, ignoringHazards: Boolean = false) {
         navigationDestination = GeoPoint(shelter.latitude, shelter.longitude)
+        previewIgnoringHazards = ignoringHazards
         val minutes = (durationSeconds / 60.0).toInt()
-        routeSummary.text = "${shelter.name}: ${distanceMeters.toInt()} m, about $minutes min"
+        routeSummary.text = if (ignoringHazards) "${shelter.name}: ${distanceMeters.toInt()} m, about $minutes min. Reported hazards ignored for this session."
+        else "${shelter.name}: ${distanceMeters.toInt()} m, about $minutes min"
         setStartButtonEnabled(true)
         map?.let { activeMap ->
             // There is one active destination at a time, so retain only its route.
@@ -447,7 +641,7 @@ class NavigateActivity : AppCompatActivity() {
             activeRoute = activeMap.addPolyline(
                 PolylineOptions()
                     .addAll(geometry.map { LatLng(it.latitude, it.longitude) })
-                    .color(Color.parseColor("#64B5F6"))
+                    .color(if (ignoringHazards) Color.parseColor("#FFB74D") else Color.parseColor("#64B5F6"))
                     .width(10f)
             )
         }
@@ -476,7 +670,7 @@ class NavigateActivity : AppCompatActivity() {
         val target = navigationDestination ?: return
         val location = getSystemService(LocationManager::class.java)
         if (!location.isLocationEnabled) { showError("Turn on system location before starting navigation"); return }
-        NavigationForegroundService.start(this, target)
+        NavigationForegroundService.start(this, target, ignoreHazards = previewIgnoringHazards)
     }
 
     override fun onStart() { super.onStart(); mapView.onStart() }

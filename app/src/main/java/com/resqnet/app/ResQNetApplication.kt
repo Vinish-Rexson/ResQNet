@@ -11,6 +11,7 @@ import com.resqnet.app.circles.RoomCircleRepository
 import com.resqnet.app.circles.CircleService
 import com.resqnet.app.circles.CircleMessageService
 import com.resqnet.app.circles.CircleStatusService
+import com.resqnet.app.navigation.HazardRepository
 
 class ResQNetApplication : Application() {
     lateinit var database: ResQNetDatabase; private set
@@ -22,6 +23,7 @@ class ResQNetApplication : Application() {
     lateinit var receipts: ReceiptRepository; private set
     lateinit var localProjections: LocalProjectionRepository; private set
     lateinit var circles: CircleRepository; private set
+    lateinit var hazards: HazardRepository; private set
     lateinit var circleService: CircleService; private set
     lateinit var circleMessages: CircleMessageService; private set
     lateinit var circleStatuses: CircleStatusService; private set
@@ -42,6 +44,7 @@ class ResQNetApplication : Application() {
         receipts = RoomReceiptRepository(database.meshDao())
         localProjections = RoomLocalProjectionRepository(database, database.meshDao())
         circles = RoomCircleRepository(database, database.meshDao())
+        hazards = HazardRepository(database.hazardDao())
         signer = AndroidIdentitySigner()
         router = MessageRouter(
             packets, messages, peers, signer, { profile.displayName.ifBlank { "Anonymous" } },

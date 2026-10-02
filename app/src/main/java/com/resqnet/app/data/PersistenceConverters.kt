@@ -8,6 +8,7 @@ import com.resqnet.app.protocol.CircleMemberRole
 import com.resqnet.app.protocol.SafetyStatus
 import com.resqnet.app.circles.CircleInvitationState
 import com.resqnet.app.circles.CircleLocalState
+import com.resqnet.app.navigation.HazardType
 
 class PersistenceConverters {
     @TypeConverter fun packetKindToString(value: PacketKind): String = value.name
@@ -28,4 +29,6 @@ class PersistenceConverters {
     @TypeConverter fun stringToCircleRole(value: String): CircleMemberRole = CircleMemberRole.valueOf(value)
     @TypeConverter fun safetyStatusToString(value: SafetyStatus): String = value.name
     @TypeConverter fun stringToSafetyStatus(value: String): SafetyStatus = SafetyStatus.valueOf(value)
+    @TypeConverter fun hazardTypeToString(value: HazardType): String = value.name
+    @TypeConverter fun stringToHazardType(value: String): HazardType = HazardType.valueOf(value)
 }

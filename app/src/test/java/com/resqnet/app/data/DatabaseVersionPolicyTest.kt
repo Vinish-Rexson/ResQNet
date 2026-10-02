@@ -6,12 +6,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DatabaseVersionPolicyTest {
-    @Test fun taskThreeConcurrencyFixSchemaIsVersionFiveAndResetsOnlyEarlierSchemas() {
-        assertEquals(5, RESQNET_DATABASE_VERSION)
+    @Test fun hazardReportsSchemaIsVersionSixAndResetsOnlyEarlierSchemas() {
+        assertEquals(6, RESQNET_DATABASE_VERSION)
         assertTrue(canDestructivelyResetFrom(1))
         assertTrue(canDestructivelyResetFrom(2))
         assertTrue(canDestructivelyResetFrom(3))
         assertTrue(canDestructivelyResetFrom(4))
         assertFalse(canDestructivelyResetFrom(5))
+        assertFalse(canDestructivelyResetFrom(6))
     }
 }

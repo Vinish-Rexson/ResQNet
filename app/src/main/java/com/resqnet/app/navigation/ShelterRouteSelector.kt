@@ -7,7 +7,7 @@ import kotlin.math.sqrt
 
 /** Matrix-free shelter selection: route only the five closest valid candidates. */
 class ShelterRouteSelector(private val routingEngine: RoutingEngine) {
-    suspend fun chooseBest(origin: GeoPoint, shelters: List<Shelter>): ShelterRoute? {
+    suspend fun chooseBest(origin: GeoPoint, shelters: List<Shelter>, avoidanceAreas: List<AvoidanceArea> = emptyList()): ShelterRoute? {
         val candidates = shelters.asSequence()
             .filter { GeoPoint(it.latitude, it.longitude).isValid() }
             .sortedWith(compareBy<Shelter> { if (it.verified) 0 else 1 }.thenBy { distanceMeters(origin, it) })
@@ -16,7 +16,7 @@ class ShelterRouteSelector(private val routingEngine: RoutingEngine) {
         return candidates.mapNotNull { shelter ->
             runCatching {
                 ShelterRoute(shelter, routingEngine.calculateRoute(NavigationRouteRequest(
-                    origin, GeoPoint(shelter.latitude, shelter.longitude)
+                    origin, GeoPoint(shelter.latitude, shelter.longitude), avoidanceAreas
                 )))
             }.getOrNull()
         }.minByOrNull { it.route.durationSeconds }

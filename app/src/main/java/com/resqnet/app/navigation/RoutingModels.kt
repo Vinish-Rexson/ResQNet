@@ -20,7 +20,8 @@ data class InstalledRegionPack(
 
 data class NavigationRouteRequest(
     val origin: GeoPoint,
-    val destination: GeoPoint
+    val destination: GeoPoint,
+    val avoidanceAreas: List<AvoidanceArea> = emptyList(),
 )
 
 data class RouteManeuver(
