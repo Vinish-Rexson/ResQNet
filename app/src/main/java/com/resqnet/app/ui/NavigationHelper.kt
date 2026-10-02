@@ -34,15 +34,21 @@ fun setupBottomNav(activity: Activity, currentTabId: Int) {
     androidx.core.view.WindowInsetsControllerCompat(activity.window, activity.window.decorView).isAppearanceLightNavigationBars = false
 
     // Eliminate the bottom safe-area gap / cream strip caused by fitsSystemWindows on root layout.
-    // The root layout pads only the top (for status bar/toolbar), while bottomNav extends flush
-    // to the physical bottom edge with internal bottom padding to elevate items above the gesture pill.
+    // The root layout has 0 padding (allowing AppBar to handle status bar cleanly without double padding,
+    // and bottomNav to extend flush to the physical bottom edge with internal bottom padding).
     val parentLayout = bottomNav.parent as? ViewGroup
     if (parentLayout != null) {
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(parentLayout) { v, insets ->
-            val statusBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars())
             val navBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-            v.setPadding(v.paddingLeft, statusBars.top, v.paddingRight, 0)
+            v.setPadding(0, 0, 0, 0)
             bottomNav.setPadding(0, 0, 0, navBars.bottom)
+            // Dispatch insets to children (CoordinatorLayout / AppBarLayout) so AppBar gets exactly 1x status bar padding
+            for (i in 0 until (v as ViewGroup).childCount) {
+                val child = v.getChildAt(i)
+                if (child !== bottomNav) {
+                    androidx.core.view.ViewCompat.dispatchApplyWindowInsets(child, insets)
+                }
+            }
             insets
         }
         androidx.core.view.ViewCompat.requestApplyInsets(parentLayout)
@@ -51,9 +57,8 @@ fun setupBottomNav(activity: Activity, currentTabId: Int) {
             val root = bottomNav.rootView
             val insets = androidx.core.view.ViewCompat.getRootWindowInsets(root)
             if (insets != null) {
-                val statusBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars())
                 val navBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-                parentLayout.setPadding(parentLayout.paddingLeft, statusBars.top, parentLayout.paddingRight, 0)
+                parentLayout.setPadding(0, 0, 0, 0)
                 bottomNav.setPadding(0, 0, 0, navBars.bottom)
             }
         }

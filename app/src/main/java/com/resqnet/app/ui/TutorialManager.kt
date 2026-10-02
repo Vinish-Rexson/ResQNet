@@ -31,7 +31,9 @@ object TutorialManager {
     fun showTutorial(activity: Activity) = startFullTour(activity)
 
     fun startFullTour(activity: Activity) {
-        if (activity is ChatActivity) {
+        if (activity is NavigateActivity) {
+            runNavigateTour(activity)
+        } else if (activity is ChatActivity) {
             runChatTour(activity)
         } else {
             val intent = Intent(activity, ChatActivity::class.java).apply {
@@ -67,7 +69,7 @@ object TutorialManager {
                     targetView = statusBar,
                     title = "Live Mesh Status",
                     description = "Monitors your direct Bluetooth mesh connections. Tap 'Manage' anytime to inspect node details or start relaying.",
-                    stepBadge = "1 of 7",
+                    stepBadge = "Step 1 of 12",
                     customButtonText = "Next  →"
                 )
             )
@@ -80,7 +82,7 @@ object TutorialManager {
                     targetView = messageInput,
                     title = "Broadcast Emergency Alert",
                     description = "Type and send signed emergency messages to all nearby phones over Bluetooth mesh. Zero cell service, SIM card, or Wi-Fi required.",
-                    stepBadge = "2 of 7",
+                    stepBadge = "Step 2 of 12",
                     customButtonText = "Next  →"
                 )
             )
@@ -94,7 +96,7 @@ object TutorialManager {
                     targetView = circlesTab,
                     title = "Emergency Circles",
                     description = "Coordinate private rescue squads and broadcast live safety statuses. Tap below to visit Circles.",
-                    stepBadge = "3 of 7",
+                    stepBadge = "Step 3 of 12",
                     customButtonText = "Go to Circles  →",
                     onNextClicked = {
                         val intent = Intent(activity, CirclesActivity::class.java).apply {
@@ -124,7 +126,7 @@ object TutorialManager {
                     targetView = fabCreate,
                     title = "Create Circles & Live Status",
                     description = "Form private response circles (Family, Medical, Evac Squad) to broadcast real-time safety status (Safe, Need Help, Unknown).",
-                    stepBadge = "4 of 7",
+                    stepBadge = "Step 4 of 12",
                     customButtonText = "Next  →"
                 )
             )
@@ -138,7 +140,7 @@ object TutorialManager {
                     targetView = meshTab,
                     title = "Mesh Engine Controls",
                     description = "Control Bluetooth relaying and discover nearby nodes. Tap below to view Mesh controls.",
-                    stepBadge = "5 of 7",
+                    stepBadge = "Step 5 of 12",
                     customButtonText = "Go to Mesh  →",
                     onNextClicked = {
                         val intent = Intent(activity, MeshControlActivity::class.java).apply {
@@ -168,7 +170,7 @@ object TutorialManager {
                     targetView = startMeshBtn,
                     title = "Start Mesh Relaying",
                     description = "Activate this engine so your phone acts as a relay node, hopping emergency messages across phones to reach help miles away.",
-                    stepBadge = "6 of 7",
+                    stepBadge = "Step 6 of 12",
                     customButtonText = "Next  →"
                 )
             )
@@ -182,7 +184,7 @@ object TutorialManager {
                     targetView = navTab,
                     title = "Offline Navigation",
                     description = "Access offline regional maps and emergency shelter routing. Tap below to explore Navigate.",
-                    stepBadge = "7 of 7",
+                    stepBadge = "Step 7 of 12",
                     customButtonText = "Go to Navigate  →",
                     onNextClicked = {
                         val intent = Intent(activity, NavigateActivity::class.java).apply {
@@ -205,13 +207,72 @@ object TutorialManager {
         if (activity.isFinishing || activity.isDestroyed) return
         val targets = mutableListOf<SpotlightOverlayView.SpotlightTarget>()
 
+        // 1. Nearest Shelter button
         val nearestBtn = activity.findViewById<View>(R.id.nearestShelterButton)
         if (nearestBtn != null && nearestBtn.visibility == View.VISIBLE) {
             targets.add(
                 SpotlightOverlayView.SpotlightTarget(
                     targetView = nearestBtn,
                     title = "Find Nearest Shelter",
-                    description = "Tap to instantly calculate turn-by-turn walking routes to the nearest community shelter, medical camp, or evacuation center completely offline.",
+                    description = "One-tap offline routing to the closest verified emergency shelter, medical station, or evacuation camp.",
+                    stepBadge = "Step 8 of 12",
+                    customButtonText = "Next  →"
+                )
+            )
+        }
+
+        // 2. Shelters catalog button
+        val sheltersBtn = activity.findViewById<View>(R.id.sheltersButton)
+        if (sheltersBtn != null) {
+            sheltersBtn.visibility = View.VISIBLE
+            targets.add(
+                SpotlightOverlayView.SpotlightTarget(
+                    targetView = sheltersBtn,
+                    title = "Browse All Shelters",
+                    description = "Opens the shelter bottom sheet to view addresses, verified safety badges, capacities, and select any shelter.",
+                    stepBadge = "Step 9 of 12",
+                    customButtonText = "Next  →"
+                )
+            )
+        }
+
+        // 3. Clear Pins button
+        val clearPinsBtn = activity.findViewById<View>(R.id.clearPinsButton)
+        if (clearPinsBtn != null && clearPinsBtn.visibility == View.VISIBLE) {
+            targets.add(
+                SpotlightOverlayView.SpotlightTarget(
+                    targetView = clearPinsBtn,
+                    title = "Clear Custom Pins",
+                    description = "Removes any custom start or destination pins you placed by long-pressing. It will never interrupt an active navigation session.",
+                    stepBadge = "Step 10 of 12",
+                    customButtonText = "Next  →"
+                )
+            )
+        }
+
+        // 4. My Location button
+        val myLocationBtn = activity.findViewById<View>(R.id.myLocationButton)
+        if (myLocationBtn != null && myLocationBtn.visibility == View.VISIBLE) {
+            targets.add(
+                SpotlightOverlayView.SpotlightTarget(
+                    targetView = myLocationBtn,
+                    title = "My Location & Re-center",
+                    description = "Smoothly animates the map to your live GPS position puck and uses your current coordinates as the route start point.",
+                    stepBadge = "Step 11 of 12",
+                    customButtonText = "Next  →"
+                )
+            )
+        }
+
+        // 5. Start Navigation / Bottom Route Card
+        val startNavBtn = activity.findViewById<View>(R.id.startNavigationButton)
+            ?: activity.findViewById<View>(R.id.bottomRouteCard)
+        if (startNavBtn != null && startNavBtn.visibility == View.VISIBLE) {
+            targets.add(
+                SpotlightOverlayView.SpotlightTarget(
+                    targetView = startNavBtn,
+                    title = "Turn-by-Turn Offline Navigation",
+                    description = "Start live voice guidance, step maneuvers, lockscreen notifications, and Picture-in-Picture mode even with zero cellular signal.",
                     stepBadge = "Guide Complete",
                     customButtonText = "Got it, All Set!  ✓",
                     onNextClicked = {
@@ -222,7 +283,7 @@ object TutorialManager {
                         activity.startActivity(intent)
                         Snackbar.make(
                             activity.findViewById(android.R.id.content),
-                            "🎉 You're ready to communicate off-grid!",
+                            "🎉 You're ready to communicate & navigate off-grid!",
                             Snackbar.LENGTH_LONG
                         ).show()
                     }
