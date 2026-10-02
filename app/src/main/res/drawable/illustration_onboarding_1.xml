@@ -1,0 +1,60 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="280dp"
+    android:height="280dp"
+    android:viewportWidth="280"
+    android:viewportHeight="280">
+
+  <!-- Background subtle halo -->
+  <path
+      android:fillColor="#1AF2B544"
+      android:pathData="M140,140m-110,0a110,110 0 1,1 220,0a110,110 0 1,1 -220,0"/>
+
+  <!-- Outer connection ring -->
+  <path
+      android:strokeColor="#CBD5E1"
+      android:strokeWidth="2"
+      android:fillColor="#00000000"
+      android:pathData="M140,140m-80,0a80,80 0 1,1 160,0a80,80 0 1,1 -160,0"/>
+
+  <!-- Connection rays -->
+  <path
+      android:strokeColor="#F2B544"
+      android:strokeWidth="2.5"
+      android:pathData="M140,105 L140,75 M140,175 L140,205 M105,140 L75,140 M175,140 L205,140"/>
+
+  <!-- Central Device -->
+  <path
+      android:fillColor="#172B3A"
+      android:pathData="M124,105 h32 a6,6 0 0 1 6,6 v58 a6,6 0 0 1 -6,6 h-32 a6,6 0 0 1 -6,-6 v-58 a6,6 0 0 1 6,-6 z"/>
+  <path
+      android:fillColor="#F2B544"
+      android:pathData="M136,134 h8 v12 h-8 z"/>
+
+  <!-- Node 1: Top -->
+  <path
+      android:fillColor="#438477"
+      android:pathData="M130,55 h20 a4,4 0 0 1 4,4 v26 a4,4 0 0 1 -4,4 h-20 a4,4 0 0 1 -4,-4 v-26 a4,4 0 0 1 4,-4 z"/>
+
+  <!-- Node 2: Bottom -->
+  <path
+      android:fillColor="#438477"
+      android:pathData="M130,195 h20 a4,4 0 0 1 4,4 v26 a4,4 0 0 1 -4,4 h-20 a4,4 0 0 1 -4,-4 v-26 a4,4 0 0 1 4,-4 z"/>
+
+  <!-- Node 3: Left -->
+  <path
+      android:fillColor="#438477"
+      android:pathData="M50,125 h20 a4,4 0 0 1 4,4 v26 a4,4 0 0 1 -4,4 h-20 a4,4 0 0 1 -4,-4 v-26 a4,4 0 0 1 4,-4 z"/>
+
+  <!-- Node 4: Right -->
+  <path
+      android:fillColor="#438477"
+      android:pathData="M210,125 h20 a4,4 0 0 1 4,4 v26 a4,4 0 0 1 -4,4 h-20 a4,4 0 0 1 -4,-4 v-26 a4,4 0 0 1 4,-4 z"/>
+
+  <!-- Offline signal indicator: Broken waves -->
+  <path
+      android:strokeColor="#D95C50"
+      android:strokeWidth="3"
+      android:strokeLineCap="round"
+      android:pathData="M225,50 L255,80 M255,50 L225,80"/>
+
+</vector>

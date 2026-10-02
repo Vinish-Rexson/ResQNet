@@ -1,0 +1,45 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="280dp"
+    android:height="280dp"
+    android:viewportWidth="280"
+    android:viewportHeight="280">
+
+  <!-- Background alert glow -->
+  <path
+      android:fillColor="#1AD95C50"
+      android:pathData="M140,140m-105,0a105,105 0 1,1 210,0a105,105 0 1,1 -210,0"/>
+
+  <!-- Pulsing broadcast rings -->
+  <path
+      android:strokeColor="#F2B544"
+      android:strokeWidth="2"
+      android:fillColor="#00000000"
+      android:pathData="M140,140m-75,0a75,75 0 1,1 150,0a75,75 0 1,1 -150,0"/>
+
+  <path
+      android:strokeColor="#D95C50"
+      android:strokeWidth="2.5"
+      android:fillColor="#00000000"
+      android:pathData="M140,140m-48,0a48,48 0 1,1 96,0a48,48 0 1,1 -96,0"/>
+
+  <!-- Phone Shape -->
+  <path
+      android:fillColor="#172B3A"
+      android:pathData="M115,80 h50 a8,8 0 0 1 8,8 v104 a8,8 0 0 1 -8,8 h-50 a8,8 0 0 1 -8,-8 v-104 a8,8 0 0 1 8,-8 z"/>
+
+  <!-- SOS Badge on screen -->
+  <path
+      android:fillColor="#D95C50"
+      android:pathData="M125,120 h30 a4,4 0 0 1 4,4 v24 a4,4 0 0 1 -4,4 h-30 a4,4 0 0 1 -4,-4 v-24 a4,4 0 0 1 4,-4 z"/>
+
+  <!-- Exclamation mark in SOS badge -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M138,126 h4 v10 h-4 z M138,139 h4 v3 h-4 z"/>
+
+  <!-- Floating Location Pin -->
+  <path
+      android:fillColor="#F2B544"
+      android:pathData="M205,75 C197,75 190,82 190,90 C190,101 205,115 205,115 C205,115 220,101 220,90 C220,82 213,75 205,75 Z M205,95 C202,95 200,93 200,90 C200,87 202,85 205,85 C208,85 210,87 210,90 C210,93 208,95 205,95 Z"/>
+
+</vector>

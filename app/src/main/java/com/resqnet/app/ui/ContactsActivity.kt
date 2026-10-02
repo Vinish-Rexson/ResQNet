@@ -2,7 +2,10 @@ package com.resqnet.app.ui
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.view.*
 import android.widget.*
 import androidx.activity.viewModels
@@ -134,27 +137,37 @@ class ContactsActivity : AppCompatActivity() {
         Snackbar.make(findViewById(android.R.id.content), msg, Snackbar.LENGTH_LONG).show()
 
     private fun showFingerprintDialog(peer: PeerEntity) {
-        val input = EditText(this).apply {
-            hint = "Verify fingerprint: ${peer.fingerprint.chunked(8).joinToString(" ")}"
-            setPadding(48, 24, 48, 24)
-        }
-        AlertDialog.Builder(this)
-            .setTitle("Add ${peer.displayName}")
-            .setMessage(
-                "Make sure you can see the peer's screen.\n\n" +
-                "Their fingerprint: ${peer.fingerprint.chunked(8).joinToString(" ")}\n\n" +
-                "Type the first 8 characters of the fingerprint shown on their screen to confirm."
-            )
-            .setView(input)
-            .setPositiveButton("Send request") { _, _ ->
-                val confirmed = input.text.toString().trim()
-                if (confirmed.isEmpty()) { showSnack("Please enter the fingerprint prefix"); return@setPositiveButton }
-                model.requestContact(peer.nodeId, peer.fingerprint) { err ->
-                    if (err != null) showSnack(err) else showSnack("Contact request sent to ${peer.displayName}")
-                }
+        val view = layoutInflater.inflate(R.layout.dialog_add_contact, null)
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setView(view)
+            .setBackground(ColorDrawable(Color.TRANSPARENT))
+            .create()
+
+        val tvTitle = view.findViewById<TextView>(R.id.dialogAddContactTitle)
+        val tvFingerprint = view.findViewById<TextView>(R.id.dialogPeerFingerprint)
+        val input = view.findViewById<EditText>(R.id.dialogFingerprintInput)
+        val btnCancel = view.findViewById<View>(R.id.dialogCancelButton)
+        val btnSend = view.findViewById<View>(R.id.dialogSendRequestButton)
+
+        tvTitle.text = "Add ${peer.displayName}"
+        tvFingerprint.text = peer.fingerprint.chunked(8).joinToString(" ")
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+
+        btnSend.setOnClickListener {
+            val confirmed = input.text.toString().trim()
+            if (confirmed.isEmpty()) {
+                input.error = "Please enter the fingerprint prefix"
+                return@setOnClickListener
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+            dialog.dismiss()
+            model.requestContact(peer.nodeId, peer.fingerprint) { err ->
+                if (err != null) showSnack(err) else showSnack("Contact request sent to ${peer.displayName}")
+            }
+        }
+
+        dialog.show()
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────

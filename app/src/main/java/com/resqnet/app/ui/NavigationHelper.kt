@@ -3,12 +3,14 @@ package com.resqnet.app.ui
 import android.app.Activity
 import android.content.Intent
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -20,7 +22,52 @@ import kotlinx.coroutines.launch
 fun setupBottomNav(activity: Activity, currentTabId: Int) {
     val bottomNav = activity.findViewById<BottomNavigationView>(R.id.bottomNav) ?: return
     bottomNav.selectedItemId = currentTabId
+
+    // Subtle gentle pop for active tab icon on entry (Instagram style)
+    bottomNav.post {
+        val selectedItem = bottomNav.findViewById<View>(currentTabId)
+        val icon = selectedItem?.findViewById<View>(com.google.android.material.R.id.navigation_bar_item_icon_view) ?: selectedItem
+        icon?.let { v ->
+            v.scaleX = 0.92f
+            v.scaleY = 0.92f
+            v.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .setDuration(160)
+                .setInterpolator(FastOutSlowInInterpolator())
+                .start()
+        }
+    }
+
     bottomNav.setOnItemSelectedListener { item ->
+        val itemView = bottomNav.findViewById<View>(item.itemId)
+        // Animate ONLY the icon — labels stay crisp and rock-solid
+        val iconView = itemView?.findViewById<View>(com.google.android.material.R.id.navigation_bar_item_icon_view) ?: itemView
+
+        iconView?.let { v ->
+            v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            v.animate()
+                .scaleX(0.86f)
+                .scaleY(0.86f)
+                .setDuration(80)
+                .setInterpolator(FastOutSlowInInterpolator())
+                .withEndAction {
+                    v.animate()
+                        .scaleX(1.08f)
+                        .scaleY(1.08f)
+                        .setDuration(110)
+                        .withEndAction {
+                            v.animate()
+                                .scaleX(1.0f)
+                                .scaleY(1.0f)
+                                .setDuration(70)
+                                .start()
+                        }
+                        .start()
+                }
+                .start()
+        }
+
         if (item.itemId == currentTabId) return@setOnItemSelectedListener true
 
         val intent = when (item.itemId) {
@@ -35,6 +82,7 @@ fun setupBottomNav(activity: Activity, currentTabId: Int) {
         if (intent != null) {
             intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             activity.startActivity(intent)
+            // Zero flicker: bottom bar remains completely static like a Single-Page App
             activity.overridePendingTransition(0, 0)
         }
         false
@@ -59,9 +107,43 @@ fun setupMeshAppBarBadge(activity: AppCompatActivity, explicitToolbar: Toolbar? 
             ViewGroup.LayoutParams.WRAP_CONTENT,
             Gravity.END or Gravity.CENTER_VERTICAL
         ).apply {
-            marginEnd = (16 * activity.resources.displayMetrics.density).toInt()
+            marginEnd = (8 * activity.resources.displayMetrics.density).toInt()
         }
         toolbar.addView(badge, params)
+    }
+
+    // Add Tutorial button to the App Bar across screens
+    var btnTutorial = toolbar.findViewById<View>(R.id.btnTutorial)
+    if (btnTutorial == null) {
+        val tutorialBtn = LayoutInflater.from(activity).inflate(R.layout.view_tutorial_appbar_button, toolbar, false)
+        val tutorialParams = Toolbar.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.END or Gravity.CENTER_VERTICAL
+        ).apply {
+            marginEnd = (8 * activity.resources.displayMetrics.density).toInt()
+        }
+        toolbar.addView(tutorialBtn, tutorialParams)
+        tutorialBtn.setOnClickListener {
+            TutorialManager.startFullTour(activity)
+        }
+    }
+
+    // Add Logout button to the App Bar across screens
+    var btnLogout = toolbar.findViewById<View>(R.id.btnLogoutAppbar)
+    if (btnLogout == null) {
+        val logoutBtn = LayoutInflater.from(activity).inflate(R.layout.view_logout_appbar_button, toolbar, false)
+        val logoutParams = Toolbar.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.END or Gravity.CENTER_VERTICAL
+        ).apply {
+            marginEnd = (12 * activity.resources.displayMetrics.density).toInt()
+        }
+        toolbar.addView(logoutBtn, logoutParams)
+        logoutBtn.setOnClickListener {
+            LogoutManager.showLogoutDialog(activity)
+        }
     }
 
     badge.setOnClickListener {
@@ -70,6 +152,7 @@ fun setupMeshAppBarBadge(activity: AppCompatActivity, explicitToolbar: Toolbar? 
                 addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             }
             activity.startActivity(intent)
+            activity.overridePendingTransition(0, 0)
         }
     }
 

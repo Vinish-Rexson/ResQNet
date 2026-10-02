@@ -48,6 +48,29 @@ class CircleDetailActivity : AppCompatActivity() {
 
     private lateinit var rootLayout: View
 
+    private val locationPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        if (PermissionHelper.hasPermissions(this)) {
+            pasteLocation()
+        } else {
+            android.widget.Toast.makeText(this, "Location permission required to paste coordinates", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun pasteLocation() {
+        val input = findViewById<EditText>(R.id.chatInput)
+        CoordinateUtils.fetchCoordinates(
+            context = this,
+            onSuccess = { lat, lon ->
+                CoordinateUtils.insertCoordinatesIntoInput(input, lat, lon)
+            },
+            onError = { err ->
+                android.widget.Toast.makeText(this, err, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -86,6 +109,14 @@ class CircleDetailActivity : AppCompatActivity() {
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
+
+        findViewById<View>(R.id.btnLocation).setOnClickListener {
+            if (!PermissionHelper.hasPermissions(this)) {
+                locationPermissionLauncher.launch(PermissionHelper.getRequiredPermissions())
+                return@setOnClickListener
+            }
+            pasteLocation()
+        }
 
         findViewById<Button>(R.id.btnSend).setOnClickListener { btn ->
             val text = input.text.toString()
@@ -479,7 +510,11 @@ class CircleDetailActivity : AppCompatActivity() {
             holder.meta.setTextColor(metaColor)
 
             holder.author.text = if (isOutgoing) "You" else msg.originName
-            holder.body.text = msg.text
+            CoordinateUtils.highlightCoordinates(
+                textView = holder.body,
+                rawText = msg.text,
+                isOutgoing = isOutgoing
+            )
             val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.createdAt))
 
             // Show delivery progress for outgoing messages

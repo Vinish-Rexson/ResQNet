@@ -98,8 +98,8 @@
                         android:layout_weight="1"
                         android:text="Log Out"
                         android:textSize="13sp"
-                        android:textColor="@color/palette_alert"
-                        app:strokeColor="@color/palette_alert"
+                        android:textColor="@color/color_logout_red"
+                        app:strokeColor="@color/color_logout_red"
                         app:strokeWidth="1dp"
                         app:cornerRadius="10dp" />
                 </LinearLayout>

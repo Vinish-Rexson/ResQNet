@@ -116,6 +116,17 @@ class CirclesActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        TutorialManager.checkAndResumeTour(this)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        TutorialManager.checkAndResumeTour(this)
+    }
+
     private fun showSnack(msg: String) =
         Snackbar.make(findViewById(android.R.id.content), msg, Snackbar.LENGTH_LONG).show()
 

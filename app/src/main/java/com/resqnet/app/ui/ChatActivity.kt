@@ -72,6 +72,22 @@ class ChatActivity : AppCompatActivity() {
             override fun afterTextChanged(s: Editable?) = Unit
         })
 
+        findViewById<View>(R.id.locationButton).setOnClickListener {
+            if (!PermissionHelper.hasPermissions(this)) {
+                permissionLauncher.launch(PermissionHelper.getRequiredPermissions())
+                return@setOnClickListener
+            }
+            CoordinateUtils.fetchCoordinates(
+                context = this,
+                onSuccess = { lat, lon ->
+                    CoordinateUtils.insertCoordinatesIntoInput(input, lat, lon)
+                },
+                onError = { err ->
+                    android.widget.Toast.makeText(this, err, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+
         findViewById<com.google.android.material.button.MaterialButton>(R.id.sendButton).setOnClickListener { btn ->
             val text = input.text.toString().trim()
             if (text.isBlank()) return@setOnClickListener
@@ -94,6 +110,13 @@ class ChatActivity : AppCompatActivity() {
 
         // Bottom Navigation
         setupBottomNav(this, R.id.nav_chat)
+
+        // Show emergency feature tutorial once on first launch
+        if (!TutorialManager.isTutorialCompleted(this)) {
+            window.decorView.postDelayed({
+                TutorialManager.showTutorial(this)
+            }, 600)
+        }
 
         // Hide bottom navigation bar when soft keyboard is open so message input rests cleanly on keyboard
         val bottomNav = findViewById<View>(R.id.bottomNav)
@@ -129,5 +152,16 @@ class ChatActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        TutorialManager.checkAndResumeTour(this)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        TutorialManager.checkAndResumeTour(this)
     }
 }

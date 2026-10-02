@@ -30,6 +30,7 @@
         <activity 
             android:name=".ui.DiagnosticsActivity"
             android:exported="true" />
+        <activity android:name=".ui.OnboardingActivity" android:exported="false" />
         <activity android:name=".ui.MeshControlActivity" />
         <activity android:name=".ui.NavigateActivity" android:label="Navigate" />
         <activity
@@ -41,14 +42,18 @@
             android:label="Direct Message"
             android:windowSoftInputMode="stateHidden|adjustResize" />
         <activity
-            android:name=".ui.SetupActivity"
-            android:windowSoftInputMode="adjustResize"
-            android:exported="true">
+            android:name=".ui.SplashActivity"
+            android:exported="true"
+            android:theme="@style/Theme.ResQNet.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".ui.SetupActivity"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="false" />
 
         <service
             android:name=".mesh.MeshService"

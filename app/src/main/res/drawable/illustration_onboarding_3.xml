@@ -1,0 +1,47 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="280dp"
+    android:height="280dp"
+    android:viewportWidth="280"
+    android:viewportHeight="280">
+
+  <!-- Background trust halo -->
+  <path
+      android:fillColor="#1A438477"
+      android:pathData="M140,140m-105,0a105,105 0 1,1 210,0a105,105 0 1,1 -210,0"/>
+
+  <!-- Connected ring -->
+  <path
+      android:strokeColor="#438477"
+      android:strokeWidth="2.5"
+      android:fillColor="#00000000"
+      android:pathData="M140,140m-68,0a68,68 0 1,1 136,0a68,68 0 1,1 -136,0"/>
+
+  <!-- Circle Nodes -->
+  <path
+      android:fillColor="#172B3A"
+      android:pathData="M140,72m-16,0a16,16 0 1,1 32,0a16,16 0 1,1 -32,0"/>
+  <path
+      android:fillColor="#172B3A"
+      android:pathData="M208,140m-16,0a16,16 0 1,1 32,0a16,16 0 1,1 -32,0"/>
+  <path
+      android:fillColor="#172B3A"
+      android:pathData="M140,208m-16,0a16,16 0 1,1 32,0a16,16 0 1,1 -32,0"/>
+  <path
+      android:fillColor="#172B3A"
+      android:pathData="M72,140m-16,0a16,16 0 1,1 32,0a16,16 0 1,1 -32,0"/>
+
+  <!-- Central Shield of Trust -->
+  <path
+      android:fillColor="#F2B544"
+      android:pathData="M140,105 L165,115 C165,145 140,165 140,165 C140,165 115,145 115,115 Z"/>
+
+  <!-- Checkmark inside Shield -->
+  <path
+      android:strokeColor="#172B3A"
+      android:strokeWidth="3.5"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round"
+      android:fillColor="#00000000"
+      android:pathData="M131,135 L137,141 L149,129"/>
+
+</vector>

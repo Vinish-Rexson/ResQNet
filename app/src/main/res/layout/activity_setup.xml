@@ -6,12 +6,12 @@
     android:fitsSystemWindows="false"
     android:background="@color/surface">
 
-    <!-- Fixed Background Mountain Graphic: NEVER MOVES -->
+    <!-- Fixed Background Mountain Graphic: moved up by 10% -->
     <ImageView
         android:id="@+id/onboardingBgImage"
         android:layout_width="match_parent"
         android:layout_height="572dp"
-        android:layout_marginTop="-52dp"
+        android:layout_marginTop="-109dp"
         android:scaleType="centerCrop"
         android:src="@drawable/illustration_onboarding_vertical"
         android:contentDescription="Onboarding background mountain graphic" />
@@ -184,17 +184,11 @@
 
             </LinearLayout>
 
-                <!-- Enter Local Channel Primary Button -->
-                <com.google.android.material.button.MaterialButton
+                <!-- Enter Local Channel Slider Button -->
+                <com.resqnet.app.ui.SlideButton
                     android:id="@+id/continueButton"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
-                    android:text="Enter local channel  →"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
-                    app:backgroundTint="@color/resq_primary"
-                    app:cornerRadius="10dp"
-                    android:textColor="@color/white"
                     android:layout_marginTop="24dp"
                     android:layout_marginBottom="24dp" />
 

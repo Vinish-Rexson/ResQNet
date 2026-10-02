@@ -77,6 +77,9 @@ class NavigateActivity : AppCompatActivity() {
     private var nearestRouteInProgress = false
     private var findNearestAfterLocation = false
     private var headingDegrees = 0f
+    private var sharedLocationMarker: Marker? = null
+    private var pendingTargetCoordinate: GeoPoint? = null
+    private var pendingTargetLabel: String? = null
     private val sensorManager by lazy { getSystemService(SensorManager::class.java) }
     private val headingListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
@@ -166,6 +169,7 @@ class NavigateActivity : AppCompatActivity() {
             }
         }
         installBundledMumbaiPackIfNeeded()
+        handleTargetIntent(intent)
     }
 
     /** Makes the test build usable without a file picker or map catalog. */
@@ -250,6 +254,12 @@ class NavigateActivity : AppCompatActivity() {
                     .zoom(11.5)
                     .build()
                 currentLocation?.let { point -> showCurrentLocationMarker(point, centerMap = false) }
+                pendingTargetCoordinate?.let { point ->
+                    val label = pendingTargetLabel ?: "Shared Location"
+                    pendingTargetCoordinate = null
+                    pendingTargetLabel = null
+                    focusOnTargetCoordinate(point, label)
+                }
             }
         }
         mapView.visibility = View.VISIBLE
@@ -275,6 +285,12 @@ class NavigateActivity : AppCompatActivity() {
             true
         }
         currentLocation?.let { point -> showCurrentLocationMarker(point, centerMap = false) }
+        pendingTargetCoordinate?.let { point ->
+            val label = pendingTargetLabel ?: "Shared Location"
+            pendingTargetCoordinate = null
+            pendingTargetLabel = null
+            focusOnTargetCoordinate(point, label)
+        }
     }
 
     private fun requestCurrentLocation() {
@@ -470,7 +486,72 @@ class NavigateActivity : AppCompatActivity() {
         sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)?.let { sensor ->
             sensorManager.registerListener(headingListener, sensor, SensorManager.SENSOR_DELAY_UI)
         }
+        TutorialManager.checkAndResumeTour(this)
     }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        TutorialManager.checkAndResumeTour(this)
+        handleTargetIntent(intent)
+    }
+
+    private fun handleTargetIntent(intent: android.content.Intent?) {
+        if (intent == null) return
+        if (intent.hasExtra(EXTRA_TARGET_LAT) && intent.hasExtra(EXTRA_TARGET_LON)) {
+            val lat = intent.getDoubleExtra(EXTRA_TARGET_LAT, 0.0)
+            val lon = intent.getDoubleExtra(EXTRA_TARGET_LON, 0.0)
+            val label = intent.getStringExtra(EXTRA_TARGET_LABEL) ?: "Shared Location"
+            intent.removeExtra(EXTRA_TARGET_LAT)
+            intent.removeExtra(EXTRA_TARGET_LON)
+            intent.removeExtra(EXTRA_TARGET_LABEL)
+            focusOnTargetCoordinate(GeoPoint(lat, lon), label)
+        }
+    }
+
+    private fun focusOnTargetCoordinate(point: GeoPoint, label: String) {
+        val activeMap = map
+        if (activeMap == null) {
+            pendingTargetCoordinate = point
+            pendingTargetLabel = label
+            return
+        }
+
+        sharedLocationMarker?.let(activeMap::removeMarker)
+        sharedLocationMarker = activeMap.addMarker(
+            MarkerOptions()
+                .position(LatLng(point.latitude, point.longitude))
+                .title(label)
+        )
+
+        activeMap.cameraPosition = CameraPosition.Builder()
+            .target(LatLng(point.latitude, point.longitude))
+            .zoom(15.0)
+            .build()
+
+        navigationDestination = point
+        routeSummary.text = "📍 $label\nLat: ${"%.5f".format(point.latitude)}, Lon: ${"%.5f".format(point.longitude)}"
+        setStartButtonEnabled(true)
+
+        val start = pinnedStart ?: currentLocation
+        if (start != null) {
+            val destinationShelter = Shelter(
+                id = "shared_${point.latitude}_${point.longitude}",
+                name = label,
+                latitude = point.latitude,
+                longitude = point.longitude,
+                address = "${"%.5f".format(point.latitude)}, ${"%.5f".format(point.longitude)}",
+                notes = "Coordinates shared in chat",
+                source = "chat",
+                verified = true,
+                lastVerified = null
+            )
+            routeToShelter(destinationShelter)
+        } else {
+            requestCurrentLocation()
+        }
+    }
+
     override fun onPause() {
         sensorManager.unregisterListener(headingListener)
         mapView.onPause()
@@ -481,7 +562,10 @@ class NavigateActivity : AppCompatActivity() {
     override fun onDestroy() { getSystemService(LocationManager::class.java).removeUpdates(mapLocationListener); routingEngine.close(); mapView.onDestroy(); super.onDestroy() }
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); mapView.onSaveInstanceState(outState) }
 
-    private companion object {
+    companion object {
+        const val EXTRA_TARGET_LAT = "extra_target_lat"
+        const val EXTRA_TARGET_LON = "extra_target_lon"
+        const val EXTRA_TARGET_LABEL = "extra_target_label"
         // The complete list remains available from the destination picker. Keeping
         // the initial map sparse lets users see roads and landmarks at city zoom.
         const val MAX_VISIBLE_SHELTER_MARKERS = 60

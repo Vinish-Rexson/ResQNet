@@ -136,11 +136,19 @@
         <item name="android:background">@color/white</item>
         <item name="backgroundTint">@color/white</item>
         <item name="elevation">0dp</item>
+        <item name="itemRippleColor">@color/palette_amber_subtle</item>
     </style>
 
     <style name="Widget.ResQNet.Button" parent="Widget.MaterialComponents.Button">
         <item name="backgroundTint">@color/resq_primary</item>
         <item name="android:textColor">@color/white</item>
         <item name="cornerRadius">@dimen/radius_button</item>
+    </style>
+
+    <!-- Official Android 12+ Splash Screen Theme (Uber / Modern Android style) -->
+    <style name="Theme.ResQNet.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#F4F1E2</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_transparent_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.ResQNet</item>
     </style>
 </resources>

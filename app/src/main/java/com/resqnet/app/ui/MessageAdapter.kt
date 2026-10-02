@@ -38,7 +38,11 @@ class MessageAdapter : ListAdapter<ConversationMessageEntity, MessageAdapter.Hol
         holder.metadata.setTextColor(metaColor)
 
         holder.author.text = if (message.outgoing) "You" else message.originName
-        holder.body.text = message.text
+        CoordinateUtils.highlightCoordinates(
+            textView = holder.body,
+            rawText = message.text,
+            isOutgoing = message.outgoing
+        )
         val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.createdAt))
         val status = if (message.outgoing) if (message.relayed) "Relayed" else "Queued" else "Received"
         holder.metadata.text = "$time  •  $status  •  ${message.hopCount} hop${if (message.hopCount == 1) "" else "s"}"

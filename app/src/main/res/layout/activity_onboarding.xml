@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical"
+    android:background="@color/color_onboarding_bg">
+
+    <!-- Top Action Bar with Skip button -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:paddingHorizontal="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_alignParentStart="true"
+            android:text="ResQNet"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:textColor="@color/text_primary" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnOnboardingSkip"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:text="Skip"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_muted" />
+
+    </RelativeLayout>
+
+    <!-- Swiping ViewPager2 -->
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/onboardingViewPager"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Bottom Controls (Dots + Next/Get Started Button) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="24dp"
+        android:paddingBottom="32dp"
+        android:paddingTop="12dp">
+
+        <!-- Dot Indicators -->
+        <LinearLayout
+            android:id="@+id/onboardingDotsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="24dp">
+
+            <View
+                android:id="@+id/onboardingDot0"
+                android:layout_width="22dp"
+                android:layout_height="6dp"
+                android:background="@drawable/bg_pill_safe"
+                android:backgroundTint="@color/palette_amber"
+                android:layout_marginEnd="6dp" />
+
+            <View
+                android:id="@+id/onboardingDot1"
+                android:layout_width="6dp"
+                android:layout_height="6dp"
+                android:background="@drawable/bg_avatar"
+                android:backgroundTint="@color/color_divider"
+                android:layout_marginEnd="6dp" />
+
+            <View
+                android:id="@+id/onboardingDot2"
+                android:layout_width="6dp"
+                android:layout_height="6dp"
+                android:background="@drawable/bg_avatar"
+                android:backgroundTint="@color/color_divider"
+                android:layout_marginEnd="6dp" />
+
+            <View
+                android:id="@+id/onboardingDot3"
+                android:layout_width="6dp"
+                android:layout_height="6dp"
+                android:background="@drawable/bg_avatar"
+                android:backgroundTint="@color/color_divider" />
+
+        </LinearLayout>
+
+        <!-- Primary Action Button (Unified 10dp radius) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnOnboardingAction"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:text="Next  →"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="@color/palette_deep_navy"
+            app:backgroundTint="@color/palette_amber"
+            app:cornerRadius="10dp"
+            app:elevation="2dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

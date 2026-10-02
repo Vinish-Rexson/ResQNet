@@ -1,0 +1,47 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="280dp"
+    android:height="280dp"
+    android:viewportWidth="280"
+    android:viewportHeight="280">
+
+  <!-- Background map canvas -->
+  <path
+      android:fillColor="#1AF2B544"
+      android:pathData="M140,140m-105,0a105,105 0 1,1 210,0a105,105 0 1,1 -210,0"/>
+
+  <!-- Map Device / Tablet frame -->
+  <path
+      android:fillColor="#172B3A"
+      android:pathData="M95,65 h90 a8,8 0 0 1 8,8 v134 a8,8 0 0 1 -8,8 h-90 a8,8 0 0 1 -8,-8 v-134 a8,8 0 0 1 8,-8 z"/>
+
+  <!-- Screen background -->
+  <path
+      android:fillColor="#F5F3ED"
+      android:pathData="M101,75 h78 v114 h-78 z"/>
+
+  <!-- Winding Path / Route -->
+  <path
+      android:strokeColor="#F2B544"
+      android:strokeWidth="4"
+      android:strokeLineCap="round"
+      android:strokeLineJoin="round"
+      android:fillColor="#00000000"
+      android:pathData="M115,165 Q135,145 125,120 T155,95"/>
+
+  <!-- Shelter Cabin Icon at destination -->
+  <path
+      android:fillColor="#438477"
+      android:pathData="M155,80 L168,92 h-5 v14 h-16 v-14 h-5 z"/>
+
+  <!-- Compass Floating Emblem -->
+  <path
+      android:fillColor="#172B3A"
+      android:pathData="M210,190m-20,0a20,20 0 1,1 40,0a20,20 0 1,1 -40,0"/>
+  <path
+      android:fillColor="#F2B544"
+      android:pathData="M210,175 L215,190 L210,186 L205,190 Z"/>
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M210,205 L215,190 L210,194 L205,190 Z"/>
+
+</vector>

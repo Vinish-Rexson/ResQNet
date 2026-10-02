@@ -36,13 +36,7 @@ class MeshControlActivity : AppCompatActivity() {
             startActivity(android.content.Intent(this, SetupActivity::class.java).putExtra("IS_EDITING", true))
         }
         findViewById<Button>(R.id.btnLogout)?.setOnClickListener {
-            MeshService.command(this, MeshService.ACTION_STOP)
-            app.profile.displayName = ""
-            val intent = android.content.Intent(this, SetupActivity::class.java).apply {
-                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
-            }
-            startActivity(intent)
-            finish()
+            LogoutManager.showLogoutDialog(this)
         }
         findViewById<Button>(R.id.btnOpenDiagnostics)?.setOnClickListener {
             startActivity(android.content.Intent(this, DiagnosticsActivity::class.java))
@@ -62,7 +56,14 @@ class MeshControlActivity : AppCompatActivity() {
         super.onResume()
         val app = application as ResQNetApplication
         findViewById<TextView>(R.id.identityText).text = "${app.profile.displayName}\n${app.signer.fingerprint}"
-        updatePermissionText() 
+        updatePermissionText()
+        TutorialManager.checkAndResumeTour(this)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        TutorialManager.checkAndResumeTour(this)
     }
     private fun updatePermissionText() {
         val granted = PermissionHelper.hasPermissions(this)

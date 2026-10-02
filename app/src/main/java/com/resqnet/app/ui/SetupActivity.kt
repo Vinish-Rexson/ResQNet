@@ -14,6 +14,9 @@ import androidx.appcompat.app.AppCompatActivity
 import com.resqnet.app.R
 import com.resqnet.app.ResQNetApplication
 
+import androidx.core.animation.doOnEnd
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+
 class SetupActivity : AppCompatActivity() {
 
     private val permissionLauncher = registerForActivityResult(
@@ -92,10 +95,12 @@ class SetupActivity : AppCompatActivity() {
         val counterView = findViewById<TextView>(R.id.nameCounter)
 
 
+        val slideButton = findViewById<SlideButton>(R.id.continueButton)
+
         if (isEditing && app.profile.displayName.isNotEmpty()) {
             nameInput.setText(app.profile.displayName)
             counterView?.text = "${app.profile.displayName.length}/32"
-            findViewById<Button>(R.id.continueButton)?.text = "Save changes"
+            slideButton?.setText("Slide to save changes  ❯❯❯")
         }
 
         nameInput.addTextChangedListener(object : TextWatcher {
@@ -106,15 +111,25 @@ class SetupActivity : AppCompatActivity() {
             override fun afterTextChanged(s: Editable?) = Unit
         })
 
-        findViewById<Button>(R.id.continueButton).setOnClickListener {
+        slideButton.onSlideCompleteListener = {
             val name = nameInput.text.toString().trim()
             if (name.length !in 2..32) {
                 nameInput.error = "Use 2–32 characters"
+                nameInput.requestFocus()
+                slideButton.resetSlider(shake = true)
             } else { 
                 app.profile.displayName = name
                 if (isEditing) finish() else openChat()
             }
         }
     }
-    private fun openChat() { startActivity(Intent(this, ChatActivity::class.java)); finish() }
+
+    private fun openChat() {
+        if (!OnboardingActivity.isOnboardingCompleted(this)) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+        } else {
+            startActivity(Intent(this, ChatActivity::class.java))
+        }
+        finish()
+    }
 }

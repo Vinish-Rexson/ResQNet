@@ -32,6 +32,29 @@ class DirectConversationActivity : AppCompatActivity() {
     private val model by viewModels<DirectConversationViewModel>()
     private val adapter = DmMessageAdapter()
 
+    private val locationPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        if (PermissionHelper.hasPermissions(this)) {
+            pasteLocation()
+        } else {
+            android.widget.Toast.makeText(this, "Location permission required to paste coordinates", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun pasteLocation() {
+        val input = findViewById<EditText>(R.id.dmInput)
+        CoordinateUtils.fetchCoordinates(
+            context = this,
+            onSuccess = { lat, lon ->
+                CoordinateUtils.insertCoordinatesIntoInput(input, lat, lon)
+            },
+            onError = { err ->
+                android.widget.Toast.makeText(this, err, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -86,6 +109,14 @@ class DirectConversationActivity : AppCompatActivity() {
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
+
+        findViewById<View>(R.id.dmLocationButton).setOnClickListener {
+            if (!PermissionHelper.hasPermissions(this)) {
+                locationPermissionLauncher.launch(PermissionHelper.getRequiredPermissions())
+                return@setOnClickListener
+            }
+            pasteLocation()
+        }
 
         findViewById<Button>(R.id.dmSendButton).setOnClickListener { btn ->
             val text = input.text.toString()
@@ -147,7 +178,11 @@ class DirectConversationActivity : AppCompatActivity() {
             holder.body.setTextColor(textColor)
 
             holder.author.text = if (msg.outgoing) "You" else msg.originName
-            holder.body.text = msg.text
+            CoordinateUtils.highlightCoordinates(
+                textView = holder.body,
+                rawText = msg.text,
+                isOutgoing = msg.outgoing
+            )
             val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.createdAt))
             val status = when (msg.deliveryState) {
                 DeliveryState.DELIVERED -> "✓✓ Delivered"

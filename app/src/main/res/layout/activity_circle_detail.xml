@@ -155,10 +155,27 @@
                 android:textColorHint="@color/text_muted" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnLocation"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:layout_marginStart="8dp"
+                app:backgroundTint="@color/surface_card"
+                app:strokeColor="@color/color_divider"
+                app:strokeWidth="1dp"
+                app:cornerRadius="23dp"
+                app:icon="@drawable/ic_my_location"
+                app:iconTint="@color/palette_amber"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                android:padding="0dp"
+                app:elevation="0dp"
+                android:contentDescription="Insert current coordinates" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSend"
                 android:layout_width="46dp"
                 android:layout_height="46dp"
-                android:layout_marginStart="10dp"
+                android:layout_marginStart="8dp"
                 app:backgroundTint="@color/palette_amber"
                 app:cornerRadius="23dp"
                 app:icon="@drawable/ic_send_plane"
