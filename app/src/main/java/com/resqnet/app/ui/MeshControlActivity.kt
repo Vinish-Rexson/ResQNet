@@ -30,7 +30,7 @@ class MeshControlActivity : AppCompatActivity() {
                 MeshService.command(this, MeshService.ACTION_START)
             else permissions.launch(PermissionHelper.getRequiredPermissions())
         }
-        findViewById<Button>(R.id.stopMeshButton).setOnClickListener { MeshService.command(this, MeshService.ACTION_STOP) }
+        findViewById<Button>(R.id.stopMeshButton).setOnClickListener { showStopMeshDialog() }
         
         findViewById<Button>(R.id.btnEditProfile)?.setOnClickListener {
             startActivity(android.content.Intent(this, SetupActivity::class.java).putExtra("IS_EDITING", true))
@@ -69,5 +69,30 @@ class MeshControlActivity : AppCompatActivity() {
         val granted = PermissionHelper.hasPermissions(this)
         findViewById<TextView>(R.id.permissionStatus).text = if (granted) "All required permissions granted" else "Required permissions missing"
         findViewById<Button>(R.id.permissionButton).visibility = if (granted) android.view.View.GONE else android.view.View.VISIBLE
+    }
+
+    private fun showStopMeshDialog() {
+        val dialog = android.app.Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        val view = layoutInflater.inflate(R.layout.dialog_stop_mesh, null)
+        dialog.setContentView(view)
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+
+        val slideButton = view.findViewById<SlideButton>(R.id.stopMeshSlideButton)
+        val btnCancel = view.findViewById<Button>(R.id.btnCancelStop)
+
+        slideButton.setAlertTheme()
+        slideButton.setText("Slide to stop mesh  ❯❯❯")
+
+        slideButton.onSlideCompleteListener = {
+            dialog.dismiss()
+            MeshService.command(this, MeshService.ACTION_STOP)
+        }
+
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 }

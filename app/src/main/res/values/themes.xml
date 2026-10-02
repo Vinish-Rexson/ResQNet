@@ -52,9 +52,9 @@
 
         <!-- Status / Navigation bars -->
         <item name="android:statusBarColor">@color/surface</item>
-        <item name="android:navigationBarColor">@color/surface</item>
+        <item name="android:navigationBarColor">@color/bottom_nav_bg</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
-        <item name="android:windowLightNavigationBar" tools:targetApi="o">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o">false</item>
 
         <!-- Elevation overlay disabled so card colors stay crisp -->
         <item name="elevationOverlayEnabled">false</item>
@@ -133,10 +133,10 @@
     </style>
 
     <style name="Widget.ResQNet.BottomNavigationView" parent="Widget.MaterialComponents.BottomNavigationView">
-        <item name="android:background">@color/white</item>
-        <item name="backgroundTint">@color/white</item>
-        <item name="elevation">0dp</item>
-        <item name="itemRippleColor">@color/palette_amber_subtle</item>
+        <item name="android:background">@color/bottom_nav_bg</item>
+        <item name="backgroundTint">@color/bottom_nav_bg</item>
+        <item name="elevation">8dp</item>
+        <item name="itemRippleColor">#26FFFFFF</item>
     </style>
 
     <style name="Widget.ResQNet.Button" parent="Widget.MaterialComponents.Button">

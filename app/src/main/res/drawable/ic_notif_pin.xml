@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="44dp"
+    android:height="44dp"
+    android:viewportWidth="44"
+    android:viewportHeight="44">
+    <!-- White circle background -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M22,22m-21,0a21,21 0 1,0 42,0a21,21 0 1,0 -42,0" />
+    <!-- Pin body top -->
+    <path
+        android:fillColor="#EA4335"
+        android:pathData="M22,9c-4.42,0 -8,3.58 -8,8c0,5.25 8,15 8,15s8,-9.75 8,-15c0,-4.42 -3.58,-8 -8,-8z" />
+    <!-- Pin accent inner hole -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M22,17m-3,0a3,3 0 1,0 6,0a3,3 0 1,0 -6,0" />
+</vector>

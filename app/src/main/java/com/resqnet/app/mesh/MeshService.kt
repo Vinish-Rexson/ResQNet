@@ -8,6 +8,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.IBinder
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
@@ -37,6 +39,7 @@ class MeshService : Service() {
     private val lifecycleMutex = Mutex()
     private lateinit var coordinator: MeshCoordinator
     @Volatile private var requestedActive = false
+    private var notificationJob: Job? = null
 
     private val radioReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -80,12 +83,19 @@ class MeshService : Service() {
         when (intent?.action) {
             ACTION_STOP -> {
                 requestedActive = false
-                scope.launch { lifecycleMutex.withLock { coordinator.stop() }; MeshRuntime.active(false, "Mesh stopped"); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+                notificationJob?.cancel()
+                notificationJob = null
+                scope.launch {
+                    lifecycleMutex.withLock { coordinator.stop() }
+                    MeshRuntime.active(false, "Mesh stopped")
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
             }
             ACTION_SYNC -> scope.launch { coordinator.syncNow() }
             else -> {
                 requestedActive = true
-                startForeground(NOTIFICATION_ID, notification())
+                startMeshForeground()
                 MeshRuntime.active(true, "Starting BLE mesh…")
                 scope.launch {
                     runCatching { lifecycleMutex.withLock { coordinator.start() } }
@@ -97,7 +107,34 @@ class MeshService : Service() {
         return START_STICKY
     }
 
+    private fun startMeshForeground() {
+        val notif = notification()
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(NOTIFICATION_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+        } else {
+            startForeground(NOTIFICATION_ID, notif)
+        }
+        observeMeshStateForNotification()
+    }
+
+    private fun observeMeshStateForNotification() {
+        if (notificationJob?.isActive == true) return
+        notificationJob = scope.launch {
+            MeshRuntime.state.collect { state ->
+                if (requestedActive && state.active) {
+                    val manager = getSystemService(NotificationManager::class.java)
+                    manager?.notify(NOTIFICATION_ID, notification(state))
+                }
+            }
+        }
+    }
+
     override fun onDestroy() {
+        requestedActive = false
+        notificationJob?.cancel()
+        notificationJob = null
         runCatching { unregisterReceiver(radioReceiver) }
         runBlocking(Dispatchers.IO) { lifecycleMutex.withLock { coordinator.stop() } }
         scope.cancel()
@@ -139,21 +176,46 @@ class MeshService : Service() {
     }
 
     private fun createChannel() {
-        getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, getString(R.string.mesh_notification_channel), NotificationManager.IMPORTANCE_LOW)
-        )
+        val manager = getSystemService(NotificationManager::class.java)
+        val channel = NotificationChannel(
+            CHANNEL,
+            getString(R.string.mesh_notification_channel),
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            setShowBadge(true)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
+        manager.createNotificationChannel(channel)
     }
 
-    private fun notification(): Notification {
+    private fun notification(state: MeshUiState? = null): Notification {
+        val currentState = state ?: MeshRuntime.state.value
         val content = PendingIntent.getActivity(this, 0, Intent(this, ChatActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val stop = PendingIntent.getService(this, 1, Intent(this, MeshService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        return NotificationCompat.Builder(this, CHANNEL)
+
+        val detailText = when {
+            currentState.peerCount > 0 ->
+                "${currentState.peerCount} peer${if (currentState.peerCount == 1) "" else "s"} connected • ${currentState.status}"
+            currentState.status == "Mesh active" ->
+                getString(R.string.mesh_notification_text)
+            else -> currentState.status
+        }
+
+        val notif = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_mesh)
             .setContentTitle(getString(R.string.mesh_notification_title))
-            .setContentText(getString(R.string.mesh_notification_text))
-            .setOngoing(true).setContentIntent(content)
-            .addAction(0, getString(R.string.stop_mesh), stop).build()
+            .setContentText(detailText)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setContentIntent(content)
+            .addAction(0, getString(R.string.stop_mesh), stop)
+            .build()
+
+        notif.flags = notif.flags or Notification.FLAG_ONGOING_EVENT or Notification.FLAG_NO_CLEAR
+        return notif
     }
 }

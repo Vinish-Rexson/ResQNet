@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Bold Google Maps style U-turn arrow -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6,17V9a6,6 0 0,1 12,0v8a1,1 0 0,1 -2,0V9a4,4 0 0,0 -8,0v4.59l1.29,-1.3a1,1 0 0,1 1.42,1.42l-3,3a1,1 0 0,1 -1.42,0l-3,-3a1,1 0 1,1 1.42,-1.42L6,13.59V17z" />
+</vector>

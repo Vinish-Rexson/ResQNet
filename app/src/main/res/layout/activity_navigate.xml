@@ -44,6 +44,7 @@
 
         <!-- Top status / pack card -->
         <LinearLayout
+            android:id="@+id/topPackCardContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="top"
@@ -79,6 +80,66 @@
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
+        <!-- Ultra-compact Google Maps-style PiP Navigation Banner -->
+        <LinearLayout
+            android:id="@+id/pipNavigationBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone"
+            android:background="@drawable/bg_pip_navigation_banner"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="4dp"
+            android:elevation="6dp">
+
+            <ImageView
+                android:id="@+id/pipManeuverIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_notif_arrow_straight"
+                app:tint="#FFFFFF"
+                android:contentDescription="Maneuver" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="8dp">
+
+                <TextView
+                    android:id="@+id/pipDistanceText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Turn guidance"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/pipInstructionText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Continue on route"
+                    android:textColor="#E8F5E9"
+                    android:textSize="11sp"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/pipEtaText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:text="" />
         </LinearLayout>
 
         <!-- Nearest button -->
@@ -117,6 +178,28 @@
             app:strokeColor="@color/color_divider"
             android:textColor="@color/text_primary" />
 
+        <!-- Shelters button — square, below Nearest -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/sheltersButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="122dp"
+            android:layout_marginEnd="16dp"
+            android:backgroundTint="@color/resq_primary"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:visibility="gone"
+            android:contentDescription="View nearby shelters"
+            android:elevation="4dp"
+            app:cornerRadius="10dp"
+            app:strokeWidth="0dp"
+            app:icon="@drawable/ic_shelters"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconTint="@color/white" />
+
         <!-- Map attribution -->
         <TextView
             android:id="@+id/mapAttribution"
@@ -132,22 +215,81 @@
             android:textColor="@color/text_muted"
             android:textSize="11sp" />
 
-        <!-- My Location FAB -->
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/myLocationButton"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
+        <!-- Right-side vertical button stack: Zoom Fit / Clear Pins / My Location -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_gravity="bottom|end"
-            android:layout_marginEnd="20dp"
-            android:layout_marginBottom="200dp"
-            android:contentDescription="Use my current location as route start"
-            android:elevation="6dp"
-            app:backgroundTint="@color/surface_card"
-            app:srcCompat="@drawable/ic_my_location"
-            app:tint="@color/text_primary" />
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="204dp"
+            android:orientation="vertical"
+            android:elevation="4dp">
+
+            <!-- Zoom to fit route -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/zoomFitButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:visibility="gone"
+                android:backgroundTint="@color/surface_card"
+                android:contentDescription="Zoom to fit route"
+                app:cornerRadius="10dp"
+                app:strokeColor="@color/color_divider"
+                app:icon="@drawable/ic_zoom_fit"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconTint="@color/text_primary" />
+
+            <Space
+                android:layout_width="44dp"
+                android:layout_height="8dp" />
+
+            <!-- Clear pins -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/clearPinsButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:backgroundTint="@color/surface_card"
+                android:contentDescription="Clear all pinned markers"
+                app:cornerRadius="10dp"
+                app:strokeColor="@color/color_divider"
+                app:icon="@drawable/ic_clear_pins"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconTint="@color/text_primary" />
+
+            <Space
+                android:layout_width="44dp"
+                android:layout_height="8dp" />
+
+            <!-- My location -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/myLocationButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:backgroundTint="@color/surface_card"
+                android:contentDescription="Use my current location"
+                app:cornerRadius="10dp"
+                app:strokeColor="@color/color_divider"
+                app:icon="@drawable/ic_my_location"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconTint="@color/text_primary" />
+
+        </LinearLayout>
 
         <!-- Bottom Route / Shelter Card -->
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/bottomRouteCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
@@ -236,6 +378,7 @@
 
     <!-- Bottom Nav Divider -->
     <View
+        android:id="@+id/bottomNavDivider"
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="@color/color_divider" />
@@ -244,9 +387,9 @@
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/surface"
-        app:backgroundTint="@color/surface"
-        app:elevation="0dp"
+        android:background="@color/bottom_nav_bg"
+        app:backgroundTint="@color/bottom_nav_bg"
+        app:elevation="8dp"
         app:itemIconTint="@color/bottom_nav_color"
         app:itemTextColor="@color/bottom_nav_color"
         app:labelVisibilityMode="labeled"

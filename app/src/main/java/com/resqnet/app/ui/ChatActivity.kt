@@ -21,6 +21,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import kotlinx.coroutines.launch
+import com.resqnet.app.mesh.MeshRuntime
+import com.resqnet.app.mesh.MeshService
 
 class ChatActivity : AppCompatActivity() {
     private val model by viewModels<ChatViewModel>()
@@ -104,8 +106,17 @@ class ChatActivity : AppCompatActivity() {
         val meshStatusView = findViewById<TextView>(R.id.meshStatus)
         val peerCountView = findViewById<TextView>(R.id.peerCount)
 
-        findViewById<Button>(R.id.meshButton).setOnClickListener {
-            startActivity(Intent(this, MeshControlActivity::class.java))
+        val meshButton = findViewById<Button>(R.id.meshButton)
+        meshButton.setOnClickListener {
+            if (MeshRuntime.state.value.active) {
+                showStopMeshDialog()
+            } else {
+                if (PermissionHelper.hasPermissions(this)) {
+                    MeshService.command(this, MeshService.ACTION_START)
+                } else {
+                    permissionLauncher.launch(PermissionHelper.getRequiredPermissions())
+                }
+            }
         }
 
         // Bottom Navigation
@@ -148,6 +159,7 @@ class ChatActivity : AppCompatActivity() {
                             if (isActive) R.drawable.bg_status_dot_active
                             else R.drawable.bg_status_dot_inactive
                         )
+                        meshButton.text = if (isActive) "STOP" else "START"
                     }
                 }
             }
@@ -163,5 +175,30 @@ class ChatActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         TutorialManager.checkAndResumeTour(this)
+    }
+
+    private fun showStopMeshDialog() {
+        val dialog = android.app.Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        val view = layoutInflater.inflate(R.layout.dialog_stop_mesh, null)
+        dialog.setContentView(view)
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+
+        val slideButton = view.findViewById<SlideButton>(R.id.stopMeshSlideButton)
+        val btnCancel = view.findViewById<Button>(R.id.btnCancelStop)
+
+        slideButton.setAlertTheme()
+        slideButton.setText("Slide to stop mesh  ❯❯❯")
+
+        slideButton.onSlideCompleteListener = {
+            dialog.dismiss()
+            com.resqnet.app.mesh.MeshService.command(this, com.resqnet.app.mesh.MeshService.ACTION_STOP)
+        }
+
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 }
