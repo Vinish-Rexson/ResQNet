@@ -606,52 +606,84 @@ class NavigateActivity : AppCompatActivity() {
     }
 
     private fun showHazardEditor(center: GeoPoint, existing: HazardReport? = null) {
+        val sheetView = layoutInflater.inflate(R.layout.bottom_sheet_report_hazard, null)
         val dialog = BottomSheetDialog(this)
-        val padding = (20 * resources.displayMetrics.density).toInt()
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(padding, padding, padding, padding) }
-        content.addView(TextView(this).apply { text = if (existing == null) "Report area" else "Edit report"; textSize = 20f; setTextColor(Color.BLACK) })
-        content.addView(TextView(this).apply { text = "This report stays on this device and is used to avoid the area while routing."; setPadding(0, padding / 3, 0, padding / 2) })
-        val types = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL }
-        val flood = RadioButton(this).apply { id = View.generateViewId(); text = "Flood" }
-        val unsafe = RadioButton(this).apply { id = View.generateViewId(); text = "Unsafe area" }
-        types.addView(flood); types.addView(unsafe); types.check(if (existing?.type == HazardType.UNSAFE_AREA) unsafe.id else flood.id); content.addView(types)
-        val radiusLabel = TextView(this).apply { setPadding(0, padding / 2, 0, 0) }
-        val radius = SeekBar(this).apply {
-            max = (AvoidanceArea.MAX_RADIUS_METERS - AvoidanceArea.MIN_RADIUS_METERS) / 25
-            progress = ((existing?.radiusMeters ?: HazardType.FLOOD.defaultRadiusMeters) - AvoidanceArea.MIN_RADIUS_METERS) / 25
+        dialog.setContentView(sheetView)
+        dialog.window?.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            ?.setBackgroundResource(android.R.color.transparent)
+
+        val tvTitle = sheetView.findViewById<TextView>(R.id.tvSheetTitle)
+        val btnClose = sheetView.findViewById<ImageButton>(R.id.btnCloseSheet)
+        val rgType = sheetView.findViewById<RadioGroup>(R.id.rgHazardType)
+        val rbFlood = sheetView.findViewById<RadioButton>(R.id.rbFlood)
+        val rbUnsafe = sheetView.findViewById<RadioButton>(R.id.rbUnsafe)
+        val tvRadiusLabel = sheetView.findViewById<TextView>(R.id.tvRadiusLabel)
+        val sbRadius = sheetView.findViewById<SeekBar>(R.id.sbRadius)
+        val spExpiry = sheetView.findViewById<Spinner>(R.id.spExpiry)
+        val etNote = sheetView.findViewById<EditText>(R.id.etNote)
+        val btnSave = sheetView.findViewById<MaterialButton>(R.id.btnSaveReport)
+        val btnCancel = sheetView.findViewById<MaterialButton>(R.id.btnCancelReport)
+
+        tvTitle.text = if (existing == null) "Report area" else "Edit report"
+        btnSave.text = if (existing == null) "SAVE REPORT" else "SAVE CHANGES"
+
+        val floodId = View.generateViewId()
+        val unsafeId = View.generateViewId()
+        rbFlood.id = floodId
+        rbUnsafe.id = unsafeId
+        rgType.check(if (existing?.type == HazardType.UNSAFE_AREA) unsafeId else floodId)
+
+        sbRadius.max = (AvoidanceArea.MAX_RADIUS_METERS - AvoidanceArea.MIN_RADIUS_METERS) / 25
+        sbRadius.progress = ((existing?.radiusMeters ?: HazardType.FLOOD.defaultRadiusMeters) - AvoidanceArea.MIN_RADIUS_METERS) / 25
+
+        fun selectedType() = if (rgType.checkedRadioButtonId == unsafeId) HazardType.UNSAFE_AREA else HazardType.FLOOD
+        fun refreshRadius() {
+            tvRadiusLabel.text = "Avoidance radius: ${AvoidanceArea.MIN_RADIUS_METERS + sbRadius.progress * 25} m"
         }
-        fun selectedType() = if (types.checkedRadioButtonId == unsafe.id) HazardType.UNSAFE_AREA else HazardType.FLOOD
-        fun refreshRadius() { radiusLabel.text = "Avoidance radius: ${AvoidanceArea.MIN_RADIUS_METERS + radius.progress * 25} m" }
         refreshRadius()
-        radius.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+
+        sbRadius.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) = refreshRadius()
             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
-        types.setOnCheckedChangeListener { _, _ -> if (existing == null) radius.progress = (selectedType().defaultRadiusMeters - AvoidanceArea.MIN_RADIUS_METERS) / 25 }
-        content.addView(radiusLabel); content.addView(radius)
-        content.addView(TextView(this).apply { text = "Expires after"; setPadding(0, padding / 2, 0, 0) })
-        val expiry = Spinner(this); val hours = listOf(1, 6, 12, 24)
-        expiry.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, hours.map { "$it hour${if (it == 1) "" else "s"}" })
-        expiry.setSelection(if (existing?.type == HazardType.UNSAFE_AREA) 3 else 1); content.addView(expiry)
-        val note = EditText(this).apply { hint = "Optional note"; setText(existing?.note.orEmpty()); maxLines = 3 }
-        content.addView(note)
-        val actions = LinearLayout(this).apply { gravity = Gravity.END; orientation = LinearLayout.HORIZONTAL }
-        val cancel = MaterialButton(this).apply { text = "Cancel" }; val save = MaterialButton(this).apply { text = if (existing == null) "Save report" else "Save changes" }
-        actions.addView(cancel); actions.addView(save); content.addView(actions)
-        cancel.setOnClickListener { dialog.dismiss() }
-        save.setOnClickListener {
-            val type = selectedType(); val radiusMeters = AvoidanceArea.MIN_RADIUS_METERS + radius.progress * 25
-            val expiresAt = System.currentTimeMillis() + hours[expiry.selectedItemPosition] * 60 * 60 * 1000L
-            lifecycleScope.launch {
-                runCatching {
-                    if (existing == null) (application as ResQNetApplication).hazards.create(type, center, radiusMeters, expiresAt, note.text?.toString())
-                    else (application as ResQNetApplication).hazards.update(existing, type, radiusMeters, expiresAt, note.text?.toString())
-                }.onSuccess { dialog.dismiss(); routeSummary.text = "${type.label} report saved. New routes will avoid this area." }
-                    .onFailure { showError(it.message ?: "Could not save report") }
+
+        rgType.setOnCheckedChangeListener { _, _ ->
+            if (existing == null) {
+                sbRadius.progress = (selectedType().defaultRadiusMeters - AvoidanceArea.MIN_RADIUS_METERS) / 25
             }
         }
-        dialog.setContentView(content); dialog.show()
+
+        val hours = listOf(1, 6, 12, 24)
+        spExpiry.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, hours.map { "$it hour${if (it == 1) "" else "s"}" })
+        spExpiry.setSelection(if (existing?.type == HazardType.UNSAFE_AREA) 3 else 1)
+
+        etNote.setText(existing?.note.orEmpty())
+
+        btnClose.setOnClickListener { dialog.dismiss() }
+        btnCancel.setOnClickListener { dialog.dismiss() }
+
+        btnSave.setOnClickListener {
+            val type = selectedType()
+            val radiusMeters = AvoidanceArea.MIN_RADIUS_METERS + sbRadius.progress * 25
+            val expiresAt = System.currentTimeMillis() + hours[spExpiry.selectedItemPosition] * 60 * 60 * 1000L
+            lifecycleScope.launch {
+                runCatching {
+                    if (existing == null) {
+                        (application as ResQNetApplication).hazards.create(type, center, radiusMeters, expiresAt, etNote.text?.toString())
+                    } else {
+                        (application as ResQNetApplication).hazards.update(existing, type, radiusMeters, expiresAt, etNote.text?.toString())
+                    }
+                }.onSuccess {
+                    dialog.dismiss()
+                    routeSummary.text = "${type.label} report saved. New routes will avoid this area."
+                }.onFailure {
+                    showError(it.message ?: "Could not save report")
+                }
+            }
+        }
+
+        dialog.show()
     }
 
     private fun showHazardDetails(report: HazardReport) {

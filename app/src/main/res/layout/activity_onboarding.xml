@@ -30,10 +30,17 @@
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
-            android:text="Skip"
-            android:textSize="14sp"
+            android:text="Urgent? Skip"
+            android:textSize="13sp"
             android:textStyle="bold"
-            android:textColor="@color/text_muted" />
+            android:textColor="@color/color_logout_red"
+            android:minWidth="0dp"
+            android:paddingHorizontal="10dp"
+            app:icon="@drawable/ic_warning_outline"
+            app:iconTint="@color/color_logout_red"
+            app:iconSize="16dp"
+            app:iconPadding="4dp"
+            app:rippleColor="#22F04444" />
 
     </RelativeLayout>
 

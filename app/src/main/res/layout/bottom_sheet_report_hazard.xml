@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_bottom_sheet_rounded"
+    android:paddingBottom="24dp">
+
+    <!-- Handle -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bg_bottom_sheet_handle" />
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingBottom="12dp">
+
+        <TextView
+            android:id="@+id/tvSheetTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Report area"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
+
+        <ImageButton
+            android:id="@+id/btnCloseSheet"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_close"
+            android:contentDescription="Close"
+            app:tint="@color/text_muted" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/color_divider" />
+
+    <!-- Content Form -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="This report stays on this device and is used to avoid the area while routing."
+            android:textSize="13sp"
+            android:textColor="@color/text_muted"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Radio Group for Type -->
+        <RadioGroup
+            android:id="@+id/rgHazardType"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <RadioButton
+                android:id="@+id/rbFlood"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Flood"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:buttonTint="@color/palette_amber"
+                android:layout_marginEnd="24dp" />
+
+            <RadioButton
+                android:id="@+id/rbUnsafe"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Unsafe area"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:buttonTint="@color/palette_amber" />
+        </RadioGroup>
+
+        <!-- Radius Label & SeekBar -->
+        <TextView
+            android:id="@+id/tvRadiusLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Avoidance radius: 100 m"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="8dp" />
+
+        <SeekBar
+            android:id="@+id/sbRadius"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="0dp"
+            android:paddingEnd="0dp"
+            android:progressTint="@color/palette_amber"
+            android:thumbTint="@color/palette_amber"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Expiry Spinner -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Expires after"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="8dp" />
+
+        <Spinner
+            android:id="@+id/spExpiry"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_input_box"
+            android:paddingHorizontal="14dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Optional Note Input -->
+        <EditText
+            android:id="@+id/etNote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Optional note"
+            android:textSize="14sp"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_muted"
+            android:background="@drawable/bg_input_box"
+            android:padding="14dp"
+            android:maxLines="3" />
+
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="20dp"
+        android:background="@color/color_divider" />
+
+    <!-- Bottom Actions -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="16dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSaveReport"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="SAVE REPORT"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/palette_deep_navy"
+            app:backgroundTint="@color/palette_amber"
+            app:cornerRadius="10dp"
+            android:layout_marginBottom="10dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCancelReport"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="CANCEL"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_muted"
+            app:strokeColor="@color/color_divider"
+            app:strokeWidth="1dp"
+            app:cornerRadius="10dp" />
+    </LinearLayout>
+
+</LinearLayout>

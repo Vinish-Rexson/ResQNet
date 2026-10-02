@@ -26,9 +26,13 @@ class MeshControlActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.identityText).text = "${app.profile.displayName}\n${app.signer.fingerprint}"
         findViewById<Button>(R.id.permissionButton).setOnClickListener { permissions.launch(PermissionHelper.getRequiredPermissions()) }
         findViewById<Button>(R.id.startMeshButton).setOnClickListener {
-            if (PermissionHelper.hasPermissions(this))
-                MeshService.command(this, MeshService.ACTION_START)
-            else permissions.launch(PermissionHelper.getRequiredPermissions())
+            com.resqnet.app.mesh.MeshPrerequisitesHelper.checkAndPrompt(
+                activity = this,
+                onRequestPermissions = { permissions.launch(PermissionHelper.getRequiredPermissions()) },
+                onReadyToStart = {
+                    MeshService.command(this, MeshService.ACTION_START)
+                }
+            )
         }
         findViewById<Button>(R.id.stopMeshButton).setOnClickListener { showStopMeshDialog() }
         

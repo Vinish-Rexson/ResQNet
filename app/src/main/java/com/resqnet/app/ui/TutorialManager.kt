@@ -28,9 +28,14 @@ object TutorialManager {
         prefs.edit().putBoolean(KEY_TUTORIAL_COMPLETED, completed).apply()
     }
 
-    fun showTutorial(activity: Activity) = startFullTour(activity)
+    fun showTutorial(activity: Activity) {
+        if (isTutorialCompleted(activity)) return
+        startFullTour(activity)
+    }
 
-    fun startFullTour(activity: Activity) {
+    fun startFullTour(activity: Activity, force: Boolean = false) {
+        if (!force && isTutorialCompleted(activity)) return
+        setTutorialCompleted(activity, false)
         if (activity is NavigateActivity) {
             runNavigateTour(activity)
         } else if (activity is ChatActivity) {
@@ -45,10 +50,15 @@ object TutorialManager {
     }
 
     fun checkAndResumeTour(activity: Activity) {
+        if (isTutorialCompleted(activity)) {
+            activity.intent?.removeExtra(EXTRA_TUTORIAL_PHASE)
+            return
+        }
         val phase = activity.intent?.getStringExtra(EXTRA_TUTORIAL_PHASE) ?: return
         activity.intent?.removeExtra(EXTRA_TUTORIAL_PHASE)
 
         activity.window.decorView.postDelayed({
+            if (isTutorialCompleted(activity)) return@postDelayed
             when (phase) {
                 PHASE_CHAT -> if (activity is ChatActivity) runChatTour(activity)
                 PHASE_CIRCLES -> if (activity is CirclesActivity) runCirclesTour(activity)
@@ -59,7 +69,7 @@ object TutorialManager {
     }
 
     fun runChatTour(activity: Activity) {
-        if (activity.isFinishing || activity.isDestroyed) return
+        if (activity.isFinishing || activity.isDestroyed || isTutorialCompleted(activity)) return
         val targets = mutableListOf<SpotlightOverlayView.SpotlightTarget>()
 
         val statusBar = activity.findViewById<View>(R.id.statusBar)
@@ -116,7 +126,7 @@ object TutorialManager {
     }
 
     fun runCirclesTour(activity: Activity) {
-        if (activity.isFinishing || activity.isDestroyed) return
+        if (activity.isFinishing || activity.isDestroyed || isTutorialCompleted(activity)) return
         val targets = mutableListOf<SpotlightOverlayView.SpotlightTarget>()
 
         val fabCreate = activity.findViewById<View>(R.id.fabCreateCircle)
@@ -160,7 +170,7 @@ object TutorialManager {
     }
 
     fun runMeshTour(activity: Activity) {
-        if (activity.isFinishing || activity.isDestroyed) return
+        if (activity.isFinishing || activity.isDestroyed || isTutorialCompleted(activity)) return
         val targets = mutableListOf<SpotlightOverlayView.SpotlightTarget>()
 
         val startMeshBtn = activity.findViewById<View>(R.id.startMeshButton)
@@ -204,7 +214,7 @@ object TutorialManager {
     }
 
     fun runNavigateTour(activity: Activity) {
-        if (activity.isFinishing || activity.isDestroyed) return
+        if (activity.isFinishing || activity.isDestroyed || isTutorialCompleted(activity)) return
         val targets = mutableListOf<SpotlightOverlayView.SpotlightTarget>()
 
         // 1. Nearest Shelter button

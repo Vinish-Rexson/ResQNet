@@ -18,6 +18,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.resqnet.app.R
 import com.resqnet.app.data.ConversationMessageEntity
 import com.resqnet.app.data.DeliveryState
+import com.resqnet.app.mesh.MeshService
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -84,8 +85,12 @@ class DirectConversationActivity : AppCompatActivity() {
         val titleText = titleView.findViewById<TextView>(R.id.toolbarTitle)
         val initial = model.remoteDisplayName.trimStart().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
         avatarView.text = initial
-        titleText.text = model.remoteDisplayName
-        toolbar.addView(titleView)
+        val titleParams = Toolbar.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.START or Gravity.CENTER_VERTICAL
+        )
+        toolbar.addView(titleView, titleParams)
 
         setupMeshAppBarBadge(this, toolbar)
 
@@ -118,14 +123,53 @@ class DirectConversationActivity : AppCompatActivity() {
             pasteLocation()
         }
 
-        findViewById<Button>(R.id.dmSendButton).setOnClickListener { btn ->
-            val text = input.text.toString()
-            model.send(text) { error ->
+        fun doSendDm(msg: String) {
+            model.send(msg) { error ->
                 runOnUiThread {
                     if (error == null) input.text.clear()
-                    else Snackbar.make(btn, error, Snackbar.LENGTH_LONG).show()
+                    else Snackbar.make(findViewById(R.id.dmSendButton), error, Snackbar.LENGTH_LONG).show()
                 }
             }
+        }
+
+        findViewById<Button>(R.id.dmSendButton).setOnClickListener { btn ->
+            val text = input.text.toString().trim()
+            if (text.isBlank()) return@setOnClickListener
+
+            if (!com.resqnet.app.mesh.MeshRuntime.state.value.active) {
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("Mesh Network is Stopped")
+                    .setMessage("This direct message cannot reach nearby devices until the Mesh network is active. Would you like to start Mesh now?")
+                    .setPositiveButton("Start Mesh & Send") { _, _ ->
+                        com.resqnet.app.mesh.MeshPrerequisitesHelper.checkAndPrompt(
+                            activity = this,
+                            onRequestPermissions = { locationPermissionLauncher.launch(PermissionHelper.getRequiredPermissions()) },
+                            onReadyToStart = {
+                                MeshService.command(this, MeshService.ACTION_START)
+                                doSendDm(text)
+                            }
+                        )
+                    }
+                    .setNegativeButton("Send Offline") { _, _ ->
+                        doSendDm(text)
+                    }
+                    .show()
+                return@setOnClickListener
+            }
+
+            if (!com.resqnet.app.mesh.MeshPrerequisitesHelper.isBluetoothEnabled(this)) {
+                com.resqnet.app.mesh.MeshPrerequisitesHelper.checkAndPrompt(
+                    activity = this,
+                    onRequestPermissions = { locationPermissionLauncher.launch(PermissionHelper.getRequiredPermissions()) },
+                    onReadyToStart = {
+                        MeshService.command(this, MeshService.ACTION_START)
+                        doSendDm(text)
+                    }
+                )
+                return@setOnClickListener
+            }
+
+            doSendDm(text)
         }
 
         lifecycleScope.launch {

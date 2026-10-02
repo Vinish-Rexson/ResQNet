@@ -33,19 +33,34 @@ fun setupBottomNav(activity: Activity, currentTabId: Int) {
     }
     androidx.core.view.WindowInsetsControllerCompat(activity.window, activity.window.decorView).isAppearanceLightNavigationBars = false
 
-    // Eliminate the bottom safe-area gap / cream strip caused by fitsSystemWindows on root layout.
-    // The root layout has 0 padding (allowing AppBar to handle status bar cleanly without double padding,
-    // and bottomNav to extend flush to the physical bottom edge with internal bottom padding).
+    // Eliminate the bottom safe-area gap / cream strip caused by fitsSystemWindows on root layout,
+    // and seamlessly push chat input above soft keyboard when IME appears.
     val parentLayout = bottomNav.parent as? ViewGroup
+    val divider = parentLayout?.findViewById<View>(R.id.bottomNavDivider)
+
     if (parentLayout != null) {
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(parentLayout) { v, insets ->
+            val ime = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())
             val navBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-            v.setPadding(0, 0, 0, 0)
-            bottomNav.setPadding(0, 0, 0, navBars.bottom)
-            // Dispatch insets to children (CoordinatorLayout / AppBarLayout) so AppBar gets exactly 1x status bar padding
+            val isImeVisible = ime.bottom > navBars.bottom
+
+            if (isImeVisible) {
+                // Keyboard is open: hide bottom navbar and pad parent by keyboard height
+                bottomNav.visibility = View.GONE
+                divider?.visibility = View.GONE
+                v.setPadding(0, 0, 0, ime.bottom)
+            } else {
+                // Keyboard is closed: show bottom navbar and extend into navigation safe area
+                bottomNav.visibility = View.VISIBLE
+                divider?.visibility = View.VISIBLE
+                v.setPadding(0, 0, 0, 0)
+                bottomNav.setPadding(0, 0, 0, navBars.bottom)
+            }
+
+            // Dispatch insets to children (CoordinatorLayout / AppBarLayout)
             for (i in 0 until (v as ViewGroup).childCount) {
                 val child = v.getChildAt(i)
-                if (child !== bottomNav) {
+                if (child !== bottomNav && child !== divider) {
                     androidx.core.view.ViewCompat.dispatchApplyWindowInsets(child, insets)
                 }
             }
@@ -57,9 +72,19 @@ fun setupBottomNav(activity: Activity, currentTabId: Int) {
             val root = bottomNav.rootView
             val insets = androidx.core.view.ViewCompat.getRootWindowInsets(root)
             if (insets != null) {
+                val ime = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())
                 val navBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
-                parentLayout.setPadding(0, 0, 0, 0)
-                bottomNav.setPadding(0, 0, 0, navBars.bottom)
+                val isImeVisible = ime.bottom > navBars.bottom
+                if (isImeVisible) {
+                    bottomNav.visibility = View.GONE
+                    divider?.visibility = View.GONE
+                    parentLayout.setPadding(0, 0, 0, ime.bottom)
+                } else {
+                    bottomNav.visibility = View.VISIBLE
+                    divider?.visibility = View.VISIBLE
+                    parentLayout.setPadding(0, 0, 0, 0)
+                    bottomNav.setPadding(0, 0, 0, navBars.bottom)
+                }
             }
         }
     }
@@ -166,7 +191,7 @@ fun setupMeshAppBarBadge(activity: AppCompatActivity, explicitToolbar: Toolbar? 
         }
         toolbar.addView(tutorialBtn, tutorialParams)
         tutorialBtn.setOnClickListener {
-            TutorialManager.startFullTour(activity)
+            TutorialManager.startFullTour(activity, force = true)
         }
     }
 

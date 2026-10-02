@@ -98,12 +98,21 @@ class SpotlightOverlayView(context: Context) : FrameLayout(context) {
             } else if (currentIndex < targets.lastIndex) {
                 moveToStep(currentIndex + 1)
             } else {
+                TutorialManager.setTutorialCompleted(context, true)
                 dismiss()
             }
         }
 
-        btnSkip.setOnClickListener { dismiss() }
-        btnClose.setOnClickListener { dismiss() }
+        btnSkip.setOnClickListener {
+            TutorialManager.setTutorialCompleted(context, true)
+            (context as? Activity)?.intent?.removeExtra(TutorialManager.EXTRA_TUTORIAL_PHASE)
+            dismiss()
+        }
+        btnClose.setOnClickListener {
+            TutorialManager.setTutorialCompleted(context, true)
+            (context as? Activity)?.intent?.removeExtra(TutorialManager.EXTRA_TUTORIAL_PHASE)
+            dismiss()
+        }
 
         // Block touches from reaching views below
         isClickable = true

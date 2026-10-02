@@ -77,6 +77,8 @@
                     android:textColor="@color/color_safe"
                     android:background="@drawable/bg_pill_safe"
                     android:layout_marginEnd="6dp"
+                    android:singleLine="true"
+                    android:maxLines="1"
                     android:visibility="gone" />
 
                 <!-- Need Help pill -->
@@ -91,6 +93,8 @@
                     android:textColor="@color/color_need_help"
                     android:background="@drawable/bg_pill_alert"
                     android:layout_marginEnd="6dp"
+                    android:singleLine="true"
+                    android:maxLines="1"
                     android:visibility="gone" />
 
                 <!-- Unknown pill -->
@@ -104,6 +108,8 @@
                     android:textStyle="bold"
                     android:textColor="@color/text_muted"
                     android:background="@drawable/bg_pill_unknown"
+                    android:singleLine="true"
+                    android:maxLines="1"
                     android:visibility="gone" />
 
             </LinearLayout>

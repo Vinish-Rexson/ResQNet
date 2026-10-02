@@ -31,7 +31,7 @@
         <activity 
             android:name=".ui.DiagnosticsActivity"
             android:exported="true" />
-        <activity android:name=".ui.OnboardingActivity" android:exported="false" />
+        <activity android:name=".ui.OnboardingActivity" android:exported="true" />
         <activity android:name=".ui.MeshControlActivity" android:launchMode="singleTop" />
         <activity
             android:name=".ui.NavigateActivity"

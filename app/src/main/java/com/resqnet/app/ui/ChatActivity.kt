@@ -57,6 +57,11 @@ class ChatActivity : AppCompatActivity() {
         val list = findViewById<RecyclerView>(R.id.messageList).apply {
             layoutManager = LinearLayoutManager(this@ChatActivity).apply { stackFromEnd = true }
             adapter = this@ChatActivity.adapter
+            addOnLayoutChangeListener { _, _, _, _, bottom, _, _, _, oldBottom ->
+                if (bottom < oldBottom && this@ChatActivity.adapter.itemCount > 0) {
+                    post { scrollToPosition(this@ChatActivity.adapter.itemCount - 1) }
+                }
+            }
         }
 
         // Input
@@ -90,15 +95,55 @@ class ChatActivity : AppCompatActivity() {
             )
         }
 
+        fun doSend(msg: String) {
+            model.send(msg) { error ->
+                runOnUiThread {
+                    if (error == null) input.text.clear()
+                    else Snackbar.make(findViewById(R.id.sendButton), error, Snackbar.LENGTH_LONG).show()
+                }
+            }
+        }
+
         findViewById<com.google.android.material.button.MaterialButton>(R.id.sendButton).setOnClickListener { btn ->
             val text = input.text.toString().trim()
             if (text.isBlank()) return@setOnClickListener
-            model.send(text) { error ->
-                runOnUiThread {
-                    if (error == null) input.text.clear()
-                    else Snackbar.make(btn, error, Snackbar.LENGTH_LONG).show()
-                }
+
+            // Check if Mesh is stopped
+            if (!MeshRuntime.state.value.active) {
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("Mesh Network is Stopped")
+                    .setMessage("Nearby devices won't receive this message until the Mesh network is active. Would you like to start Mesh now?")
+                    .setPositiveButton("Start Mesh & Send") { _, _ ->
+                        com.resqnet.app.mesh.MeshPrerequisitesHelper.checkAndPrompt(
+                            activity = this,
+                            onRequestPermissions = { permissionLauncher.launch(PermissionHelper.getRequiredPermissions()) },
+                            onReadyToStart = {
+                                MeshService.command(this, MeshService.ACTION_START)
+                                doSend(text)
+                            }
+                        )
+                    }
+                    .setNegativeButton("Send Offline") { _, _ ->
+                        doSend(text)
+                    }
+                    .show()
+                return@setOnClickListener
             }
+
+            // Check if Bluetooth was turned off while Mesh was supposed to be running
+            if (!com.resqnet.app.mesh.MeshPrerequisitesHelper.isBluetoothEnabled(this)) {
+                com.resqnet.app.mesh.MeshPrerequisitesHelper.checkAndPrompt(
+                    activity = this,
+                    onRequestPermissions = { permissionLauncher.launch(PermissionHelper.getRequiredPermissions()) },
+                    onReadyToStart = {
+                        MeshService.command(this, MeshService.ACTION_START)
+                        doSend(text)
+                    }
+                )
+                return@setOnClickListener
+            }
+
+            doSend(text)
         }
 
         // Mesh status bar
@@ -111,11 +156,13 @@ class ChatActivity : AppCompatActivity() {
             if (MeshRuntime.state.value.active) {
                 showStopMeshDialog()
             } else {
-                if (PermissionHelper.hasPermissions(this)) {
-                    MeshService.command(this, MeshService.ACTION_START)
-                } else {
-                    permissionLauncher.launch(PermissionHelper.getRequiredPermissions())
-                }
+                com.resqnet.app.mesh.MeshPrerequisitesHelper.checkAndPrompt(
+                    activity = this,
+                    onRequestPermissions = { permissionLauncher.launch(PermissionHelper.getRequiredPermissions()) },
+                    onReadyToStart = {
+                        MeshService.command(this, MeshService.ACTION_START)
+                    }
+                )
             }
         }
 
@@ -127,16 +174,6 @@ class ChatActivity : AppCompatActivity() {
             window.decorView.postDelayed({
                 TutorialManager.showTutorial(this)
             }, 600)
-        }
-
-        // Hide bottom navigation bar when soft keyboard is open so message input rests cleanly on keyboard
-        val bottomNav = findViewById<View>(R.id.bottomNav)
-        val bottomNavDivider = findViewById<View>(R.id.bottomNavDivider)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content)) { v, insets ->
-            val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-            bottomNav?.visibility = if (imeVisible) View.GONE else View.VISIBLE
-            bottomNavDivider?.visibility = if (imeVisible) View.GONE else View.VISIBLE
-            ViewCompat.onApplyWindowInsets(v, insets)
         }
 
         // Observe state

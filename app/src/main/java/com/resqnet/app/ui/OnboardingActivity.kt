@@ -140,6 +140,7 @@ class OnboardingActivity : AppCompatActivity() {
         }
 
         btnSkip.setOnClickListener {
+            TutorialManager.setTutorialCompleted(this, true)
             finishOnboarding()
         }
     }

@@ -30,6 +30,9 @@
         android:textSize="11sp"
         android:textStyle="bold"
         android:letterSpacing="0.06"
+        android:singleLine="true"
+        android:maxLines="1"
+        android:ellipsize="end"
         android:textColor="@color/palette_teal" />
 
 </LinearLayout>

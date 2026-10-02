@@ -25,7 +25,7 @@ class SlideButton @JvmOverloads constructor(
 
     private val density = resources.displayMetrics.density
     private val trackMargin = (4 * density).toInt()
-    private val thumbSize = (48 * density).toInt()
+    private var currentThumbSize = (40 * density).toInt()
 
     private val progressView: View
     private val labelView: TextView
@@ -55,13 +55,13 @@ class SlideButton @JvmOverloads constructor(
         labelView = TextView(context).apply {
             text = "Slide to enter channel  ❯❯❯"
             setTextColor(Color.WHITE)
-            textSize = 15f
+            textSize = 14f
             typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
             gravity = Gravity.CENTER
             alpha = 0.9f
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply {
                 // Ensure text padding avoids the thumb start zone
-                setPadding((thumbSize + trackMargin * 2), 0, (thumbSize / 2), 0)
+                setPadding((currentThumbSize + trackMargin * 2), 0, (currentThumbSize / 2), 0)
             }
         }
         addView(labelView)
@@ -70,7 +70,7 @@ class SlideButton @JvmOverloads constructor(
         thumbContainer = FrameLayout(context).apply {
             background = ContextCompat.getDrawable(context, R.drawable.bg_slide_thumb)
             elevation = 4 * density
-            layoutParams = LayoutParams(thumbSize, thumbSize, Gravity.START or Gravity.CENTER_VERTICAL).apply {
+            layoutParams = LayoutParams(currentThumbSize, currentThumbSize, Gravity.START or Gravity.CENTER_VERTICAL).apply {
                 leftMargin = trackMargin
             }
         }
@@ -78,13 +78,27 @@ class SlideButton @JvmOverloads constructor(
         thumbIcon = ImageView(context).apply {
             setImageResource(R.drawable.ic_arrow_forward)
             layoutParams = LayoutParams(
-                (24 * density).toInt(),
-                (24 * density).toInt(),
+                (20 * density).toInt(),
+                (20 * density).toInt(),
                 Gravity.CENTER
             )
         }
         thumbContainer.addView(thumbIcon)
         addView(thumbContainer)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (h > 0) {
+            val calcThumb = (h - 2 * trackMargin).coerceAtLeast((24 * density).toInt())
+            if (calcThumb != currentThumbSize) {
+                currentThumbSize = calcThumb
+                thumbContainer.layoutParams.width = calcThumb
+                thumbContainer.layoutParams.height = calcThumb
+                labelView.setPadding((calcThumb + trackMargin * 2), 0, (calcThumb / 2), 0)
+                thumbContainer.requestLayout()
+            }
+        }
     }
 
     fun setText(text: CharSequence) {
@@ -100,7 +114,7 @@ class SlideButton @JvmOverloads constructor(
     }
 
     private fun getMaxSlideDistance(): Int {
-        return (width - thumbSize - 2 * trackMargin).coerceAtLeast(0)
+        return (width - currentThumbSize - 2 * trackMargin).coerceAtLeast(0)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -112,7 +126,7 @@ class SlideButton @JvmOverloads constructor(
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 // Check if touch is near thumb or starts a drag
-                if (event.x <= (thumbContainer.translationX + thumbSize + trackMargin * 4)) {
+                if (event.x <= (thumbContainer.translationX + currentThumbSize + trackMargin * 4)) {
                     isDragging = true
                     initialTouchX = event.x
                     startThumbX = thumbContainer.translationX
@@ -153,7 +167,7 @@ class SlideButton @JvmOverloads constructor(
         val progress = if (maxSlide > 0) (targetX / maxSlide.toFloat()).coerceIn(0f, 1f) else 0f
 
         // Progress fill width
-        progressView.layoutParams.width = (targetX + thumbSize / 2 + trackMargin).toInt()
+        progressView.layoutParams.width = (targetX + currentThumbSize / 2 + trackMargin).toInt()
         progressView.requestLayout()
 
         // Fade label as thumb moves across

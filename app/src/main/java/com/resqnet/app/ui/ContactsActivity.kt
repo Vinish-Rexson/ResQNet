@@ -128,8 +128,22 @@ class ContactsActivity : AppCompatActivity() {
                     tabViews[0].updateEmpty(state.trusted.isEmpty())
                     tabViews[1].updateEmpty(state.pending.isEmpty())
                     tabViews[2].updateEmpty(state.nearby.isEmpty())
+
+                    updateTabBadge(tabs.getTabAt(1), state.pending.size)
+                    updateTabBadge(tabs.getTabAt(2), state.nearby.size)
                 }
             }
+        }
+    }
+
+    private fun updateTabBadge(tab: com.google.android.material.tabs.TabLayout.Tab?, count: Int) {
+        if (tab == null) return
+        if (count > 0) {
+            val badge = tab.orCreateBadge
+            badge.number = count
+            badge.isVisible = true
+        } else {
+            tab.removeBadge()
         }
     }
 

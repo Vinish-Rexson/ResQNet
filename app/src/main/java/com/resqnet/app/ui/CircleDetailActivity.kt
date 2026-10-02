@@ -217,7 +217,7 @@ class CircleDetailActivity : AppCompatActivity() {
 
         val memberRecycler = sheetView.findViewById<RecyclerView>(R.id.memberList)
         val btnInvite = sheetView.findViewById<Button>(R.id.btnInviteMember)
-        val btnLeave = sheetView.findViewById<Button>(R.id.btnLeaveDissolve)
+        val slideLeaveDissolve = sheetView.findViewById<SlideButton>(R.id.slideLeaveDissolve)
         val btnClose = sheetView.findViewById<ImageButton>(R.id.btnCloseSheet)
 
         memberRecycler.layoutManager = LinearLayoutManager(this)
@@ -225,18 +225,31 @@ class CircleDetailActivity : AppCompatActivity() {
 
         val isOwner = model.uiState.value.circle?.ownerNodeId == (application as ResQNetApplication).signer.nodeId
         btnInvite.visibility = if (isOwner) View.VISIBLE else View.GONE
-        btnLeave.text = getString(if (isOwner) R.string.action_dissolve else R.string.action_leave)
+
+        slideLeaveDissolve.setAlertTheme()
+        if (isOwner) {
+            slideLeaveDissolve.setText("Slide to dissolve circle  ❯❯❯")
+            slideLeaveDissolve.onSlideCompleteListener = {
+                model.dissolve { err ->
+                    sheetDialog.dismiss()
+                    if (err != null) showSnack(err) else finish()
+                }
+            }
+        } else {
+            slideLeaveDissolve.setText("Slide to leave circle  ❯❯❯")
+            slideLeaveDissolve.onSlideCompleteListener = {
+                model.leave { err ->
+                    sheetDialog.dismiss()
+                    if (err != null) showSnack(err) else finish()
+                }
+            }
+        }
 
         btnClose.setOnClickListener { sheetDialog.dismiss() }
 
         btnInvite.setOnClickListener {
             sheetDialog.dismiss()
             showInviteMemberDialog()
-        }
-
-        btnLeave.setOnClickListener {
-            sheetDialog.dismiss()
-            confirmLeaveOrDissolve(isOwner)
         }
 
         sheetDialog.show()
