@@ -161,6 +161,23 @@
             app:strokeColor="@color/color_divider"
             android:textColor="@color/text_primary" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/reportHazardButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:layout_gravity="top|start"
+            android:layout_marginTop="70dp"
+            android:layout_marginStart="16dp"
+            android:backgroundTint="@color/surface_card"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Report"
+            android:textAllCaps="false"
+            app:cornerRadius="10dp"
+            app:strokeColor="@color/color_divider"
+            android:textColor="@color/text_primary" />
+
         <!-- Shelters button — square, below Nearest -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/sheltersButton"

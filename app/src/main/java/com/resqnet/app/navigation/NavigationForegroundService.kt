@@ -20,6 +20,7 @@ import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.resqnet.app.R
+import com.resqnet.app.ResQNetApplication
 import com.resqnet.app.navigation.pack.OfflinePackManager
 import com.resqnet.app.navigation.pack.OfflinePackState
 import java.text.SimpleDateFormat
@@ -31,9 +32,13 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.launch
 
 /** Foreground-only navigation owner. It deliberately returns START_NOT_STICKY. */
+@OptIn(FlowPreview::class)
 class NavigationForegroundService : Service(), LocationListener {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val evaluator = NavigationProgressEvaluator()
@@ -42,12 +47,26 @@ class NavigationForegroundService : Service(), LocationListener {
     private var destination: GeoPoint? = null
     private var route: RoutePlan? = null
     private var maneuverIndex = -1
+    private var lastOrigin: GeoPoint? = null
+    private var ignoreHazardsForSession = false
+    private var observedHazards: List<AvoidanceArea> = emptyList()
 
     override fun onCreate() {
         super.onCreate()
         locationManager = getSystemService(LocationManager::class.java)
         engine = ValhallaRoutingEngine(applicationContext)
         createChannel()
+        scope.launch {
+            (application as ResQNetApplication).hazards.observeActive().debounce(600).collect { reports ->
+                val next = reports.map(HazardReport::toAvoidanceArea)
+                if (next != observedHazards) {
+                    observedHazards = next
+                    if (!ignoreHazardsForSession && route != null) {
+                        lastOrigin?.let { origin -> destination?.let { calculateRoute(origin, it, rerouting = true) } }
+                    }
+                }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -63,6 +82,7 @@ class NavigationForegroundService : Service(), LocationListener {
             stopSelf(); return START_NOT_STICKY
         }
         destination = target
+        ignoreHazardsForSession = intent?.getBooleanExtra(EXTRA_IGNORE_HAZARDS, false) == true
         startForeground(NOTIFICATION_ID, notification(NavigationState.WaitingForFix(target)))
         publish(NavigationState.WaitingForFix(target))
 
@@ -97,6 +117,7 @@ class NavigationForegroundService : Service(), LocationListener {
     override fun onLocationChanged(location: Location) {
         val target = destination ?: return
         val point = GeoPoint(location.latitude, location.longitude)
+        lastOrigin = point
         val currentRoute = route
         if (currentRoute == null) {
             calculateRoute(point, target, rerouting = false)
@@ -119,7 +140,10 @@ class NavigationForegroundService : Service(), LocationListener {
                     ?: throw RoutingException.PackMissing("No offline pack is active")
                 engine.initialize(pack)
             }
-            val calculatedRoute = engine.calculateRoute(NavigationRouteRequest(origin, target))
+            val avoidanceAreas = if (ignoreHazardsForSession) emptyList() else {
+                (application as ResQNetApplication).hazards.activeNow().map(HazardReport::toAvoidanceArea)
+            }
+            val calculatedRoute = engine.calculateRoute(NavigationRouteRequest(origin, target, avoidanceAreas))
             route = calculatedRoute
             maneuverIndex = -1
             publishProgress(origin, target, calculatedRoute)
@@ -289,12 +313,13 @@ class NavigationForegroundService : Service(), LocationListener {
         const val EXTRA_DESTINATION_LONGITUDE = "destination_longitude"
         const val EXTRA_ORIGIN_LATITUDE = "origin_latitude"
         const val EXTRA_ORIGIN_LONGITUDE = "origin_longitude"
+        const val EXTRA_IGNORE_HAZARDS = "ignore_hazards"
         private const val CHANNEL = "resqnet_navigation_v2"
         private const val NOTIFICATION_ID = 48
         private val mutableState = MutableStateFlow<NavigationState>(NavigationState.Idle)
         val state = mutableState.asStateFlow()
 
-        fun start(context: Context, destination: GeoPoint, origin: GeoPoint? = null) {
+        fun start(context: Context, destination: GeoPoint, origin: GeoPoint? = null, ignoreHazards: Boolean = false) {
             val intent = Intent(context, NavigationForegroundService::class.java).setAction(ACTION_START)
                 .putExtra(EXTRA_DESTINATION_LATITUDE, destination.latitude)
                 .putExtra(EXTRA_DESTINATION_LONGITUDE, destination.longitude)
@@ -302,6 +327,7 @@ class NavigationForegroundService : Service(), LocationListener {
                 intent.putExtra(EXTRA_ORIGIN_LATITUDE, origin.latitude)
                 intent.putExtra(EXTRA_ORIGIN_LONGITUDE, origin.longitude)
             }
+            intent.putExtra(EXTRA_IGNORE_HAZARDS, ignoreHazards)
             ContextCompat.startForegroundService(context, intent)
         }
         fun stop(context: Context) = context.startService(Intent(context, NavigationForegroundService::class.java).setAction(ACTION_STOP))

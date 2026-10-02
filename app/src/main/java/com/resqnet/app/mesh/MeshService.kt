@@ -16,8 +16,10 @@ import androidx.core.app.NotificationCompat
 import com.resqnet.app.R
 import com.resqnet.app.ResQNetApplication
 import com.resqnet.app.mesh.ble.BleMeshTransport
+import com.resqnet.app.mesh.barp.AndroidBatteryStateProvider
 import com.resqnet.app.ui.ChatActivity
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -38,6 +40,7 @@ class MeshService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val lifecycleMutex = Mutex()
     private lateinit var coordinator: MeshCoordinator
+    private lateinit var batteryProvider: AndroidBatteryStateProvider
     @Volatile private var requestedActive = false
     private var notificationJob: Job? = null
 
@@ -66,7 +69,10 @@ class MeshService : Service() {
         super.onCreate()
         val app = application as ResQNetApplication
         val transport = BleMeshTransport(this, app.signer.nodeId, app.profile)
-        coordinator = MeshCoordinator(transport, app.router, scope)
+        coordinator = MeshCoordinator(transport, app.router, scope, app.barp)
+        batteryProvider = AndroidBatteryStateProvider(this)
+        batteryProvider.start()
+        scope.launch { batteryProvider.states.collect { app.barp.updateBattery(it) } }
         ContextCompat.registerReceiver(
             this,
             radioReceiver,
@@ -137,6 +143,7 @@ class MeshService : Service() {
         notificationJob = null
         runCatching { unregisterReceiver(radioReceiver) }
         runBlocking(Dispatchers.IO) { lifecycleMutex.withLock { coordinator.stop() } }
+        batteryProvider.stop()
         scope.cancel()
         super.onDestroy()
     }

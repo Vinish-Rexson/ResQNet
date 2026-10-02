@@ -60,7 +60,8 @@ class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
                             RoutingWaypoint(request.origin.latitude, request.origin.longitude),
                             RoutingWaypoint(request.destination.latitude, request.destination.longitude)
                         ),
-                        costing = CostingModel.pedestrian
+                        costing = CostingModel.pedestrian,
+                        avoidPolygons = prioritiseAvoidanceAreas(request).map { it.toValhallaPolygon() },
                     )
                 )
             }
@@ -104,6 +105,11 @@ class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
                 mjolnir.put("tile_dir", pack.directory.absolutePath)
                 mjolnir.put("tile_extract", pack.tileArchive.absolutePath)
                 put("mjolnir", mjolnir)
+                val serviceLimits = optJSONObject("service_limits") ?: JSONObject()
+                serviceLimits.put("allow_hard_exclusions", true)
+                serviceLimits.put("max_exclude_polygons_length", MAX_EXCLUDE_POLYGONS_LENGTH)
+                serviceLimits.put("max_exclude_locations", MAX_AVOIDANCE_AREAS)
+                put("service_limits", serviceLimits)
             }
         } catch (error: Throwable) {
             throw RoutingException.PackCorrupt("Could not read Valhalla config", error)
@@ -122,5 +128,23 @@ class ValhallaRoutingEngine(private val context: Context) : RoutingEngine {
         val safeRegion = pack.regionId.replace(Regex("[^A-Za-z0-9._-]"), "_")
         val safeVersion = pack.version.replace(Regex("[^A-Za-z0-9._-]"), "_")
         return "valhalla-$safeRegion-$safeVersion.json"
+    }
+
+    /** Keep Valhalla's request bounded while preferring reports near this trip. */
+    private fun prioritiseAvoidanceAreas(request: NavigationRouteRequest): List<AvoidanceArea> =
+        request.avoidanceAreas.sortedBy { area ->
+            minOf(squaredDistance(area.center, request.origin), squaredDistance(area.center, request.destination))
+        }.take(MAX_AVOIDANCE_AREAS)
+
+    private fun squaredDistance(a: GeoPoint, b: GeoPoint): Double {
+        val latitudeScale = kotlin.math.cos(Math.toRadians((a.latitude + b.latitude) / 2.0))
+        val latitude = a.latitude - b.latitude
+        val longitude = (a.longitude - b.longitude) * latitudeScale
+        return latitude * latitude + longitude * longitude
+    }
+
+    private companion object {
+        const val MAX_AVOIDANCE_AREAS = 100
+        const val MAX_EXCLUDE_POLYGONS_LENGTH = 100_000
     }
 }

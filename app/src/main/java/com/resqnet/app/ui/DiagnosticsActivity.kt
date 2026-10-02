@@ -8,6 +8,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.resqnet.app.*
 import com.resqnet.app.mesh.MeshRuntime
+import com.resqnet.app.mesh.barp.RelayMode
 import kotlinx.coroutines.launch
 
 class DiagnosticsActivity : AppCompatActivity() {
@@ -22,6 +23,27 @@ class DiagnosticsActivity : AppCompatActivity() {
         roles.setOnCheckedChangeListener { _, id -> app.profile.demoRole = when (id) {
             R.id.roleA -> DemoRole.A; R.id.roleB -> DemoRole.B; R.id.roleC -> DemoRole.C; else -> DemoRole.NONE
         } }
+        val barpOverrides = findViewById<RadioGroup?>(R.id.barpOverrideGroup)
+        if (BuildConfig.DEBUG) {
+            barpOverrides?.visibility = android.view.View.VISIBLE
+            barpOverrides?.check(when (app.barp.state.value.debugOverride) {
+                null -> R.id.barpAuto
+                RelayMode.NORMAL -> R.id.barpNormal
+                RelayMode.CONSERVATION -> R.id.barpConservation
+                RelayMode.CRITICAL -> R.id.barpCritical
+            })
+            barpOverrides?.setOnCheckedChangeListener { _, id ->
+                app.barp.setDebugOverride(when (id) {
+                    R.id.barpAuto -> null
+                    R.id.barpNormal -> RelayMode.NORMAL
+                    R.id.barpConservation -> RelayMode.CONSERVATION
+                    R.id.barpCritical -> RelayMode.CRITICAL
+                    else -> null
+                })
+            }
+        } else {
+            findViewById<android.view.View>(R.id.barpOverrideCard).visibility = android.view.View.GONE
+        }
         findViewById<Button>(R.id.clearEvents).setOnClickListener { MeshRuntime.clearEvents() }
         findViewById<Button>(R.id.btnLoadMockData)?.setOnClickListener {
             lifecycleScope.launch {
