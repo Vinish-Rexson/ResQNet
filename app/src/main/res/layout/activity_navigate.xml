@@ -1,30 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical"
     android:background="@color/surface">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/surface_card"
-        android:elevation="4dp"
-        android:title="Navigate"
-        app:titleTextColor="@color/text_primary" />
+        android:layout_height="wrap_content"
+        android:fitsSystemWindows="true"
+        android:background="@color/surface"
+        app:elevation="0dp">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/surface"
+            app:title="Navigate"
+            app:titleTextColor="@color/text_primary"
+            app:navigationIcon="@null"
+            app:popupTheme="@style/ThemeOverlay.ResQNet.Popup" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/color_divider" />
+
+    </com.google.android.material.appbar.AppBarLayout>
 
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_above="@id/bottomNav"
-        android:layout_below="@id/toolbar">
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
         <org.maplibre.android.maps.MapView
             android:id="@+id/mapView"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
+        <!-- Top status / pack card -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -37,7 +55,9 @@
                 android:layout_height="wrap_content"
                 app:cardBackgroundColor="@color/surface_card"
                 app:cardCornerRadius="16dp"
-                app:cardElevation="6dp">
+                app:cardElevation="4dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/color_divider">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -61,6 +81,7 @@
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
 
+        <!-- Nearest button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/nearestShelterButton"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -75,8 +96,11 @@
             android:icon="@drawable/ic_search"
             android:text="Nearest"
             android:textAllCaps="false"
+            app:cornerRadius="10dp"
+            app:strokeColor="@color/color_divider"
             android:textColor="@color/text_primary" />
 
+        <!-- Map attribution -->
         <TextView
             android:id="@+id/mapAttribution"
             android:layout_width="wrap_content"
@@ -91,14 +115,31 @@
             android:textColor="@color/text_muted"
             android:textSize="11sp" />
 
+        <!-- My Location FAB -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/myLocationButton"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="200dp"
+            android:contentDescription="Use my current location as route start"
+            android:elevation="6dp"
+            app:backgroundTint="@color/surface_card"
+            app:srcCompat="@drawable/ic_my_location"
+            app:tint="@color/text_primary" />
+
+        <!-- Bottom Route / Shelter Card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
             android:layout_margin="12dp"
             app:cardBackgroundColor="@color/surface_card"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="10dp">
+            app:cardCornerRadius="16dp"
+            app:cardElevation="6dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="@color/color_divider">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -112,7 +153,8 @@
                     android:layout_height="wrap_content"
                     android:text="Choose a shelter or long-press the map to preview a route."
                     android:textColor="@color/text_primary"
-                    android:textSize="16sp" />
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/shelterList"
@@ -140,6 +182,8 @@
                         android:insetBottom="0dp"
                         android:text="Start"
                         android:textAllCaps="false"
+                        android:textStyle="bold"
+                        app:cornerRadius="10dp"
                         app:backgroundTint="@color/resq_primary"
                         android:textColor="@color/white" />
                 </LinearLayout>
@@ -157,40 +201,35 @@
                         style="@style/Widget.MaterialComponents.Button.TextButton"
                         android:layout_width="wrap_content"
                         android:layout_height="40dp"
-                        android:text="Import map" />
+                        android:text="Import map"
+                        android:textColor="@color/text_muted" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/downloadPackButton"
                         style="@style/Widget.MaterialComponents.Button.TextButton"
                         android:layout_width="wrap_content"
                         android:layout_height="40dp"
-                        android:text="Download map" />
+                        android:text="Download map"
+                        android:textColor="@color/text_muted" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/myLocationButton"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_gravity="bottom|end"
-            android:layout_marginEnd="20dp"
-            android:layout_marginBottom="200dp"
-            android:contentDescription="Use my current location as route start"
-            android:elevation="16dp"
-            app:backgroundTint="@color/surface_card"
-            app:srcCompat="@drawable/ic_my_location"
-            app:tint="@color/text_primary" />
     </FrameLayout>
+
+    <!-- Bottom Nav Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/color_divider" />
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
         android:background="@color/surface_card"
         app:itemIconTint="@color/bottom_nav_color"
         app:itemTextColor="@color/bottom_nav_color"
         app:labelVisibilityMode="labeled"
         app:menu="@menu/bottom_nav_menu" />
-</RelativeLayout>
+</LinearLayout>
