@@ -8,7 +8,14 @@ import kotlin.math.sqrt
 sealed class NavigationState {
     data object Idle : NavigationState()
     data class WaitingForFix(val destination: GeoPoint) : NavigationState()
-    data class Active(val destination: GeoPoint, val nextInstruction: String, val distanceMeters: Double, val durationSeconds: Double) : NavigationState()
+    data class Active(
+        val destination: GeoPoint,
+        val nextInstruction: String,
+        val distanceMeters: Double,
+        val durationSeconds: Double,
+        val geometry: List<GeoPoint> = emptyList(),
+        val currentPoint: GeoPoint? = null
+    ) : NavigationState()
     data class Arrived(val destination: GeoPoint) : NavigationState()
     data class Failed(val message: String) : NavigationState()
 }
@@ -53,14 +60,7 @@ class NavigationProgressEvaluator {
         return FixDecision.KeepRoute
     }
 
-    fun distanceMeters(first: GeoPoint, second: GeoPoint): Double {
-        val radius = 6_371_000.0
-        val lat = Math.toRadians(second.latitude - first.latitude)
-        val lon = Math.toRadians(second.longitude - first.longitude)
-        val a = sin(lat / 2) * sin(lat / 2) + cos(Math.toRadians(first.latitude)) *
-            cos(Math.toRadians(second.latitude)) * sin(lon / 2) * sin(lon / 2)
-        return radius * 2 * atan2(sqrt(a), sqrt(1 - a))
-    }
+    fun distanceMeters(first: GeoPoint, second: GeoPoint): Double = Companion.distanceMeters(first, second)
 
     companion object {
         const val MAX_ACCURACY_METERS = 50f
@@ -69,5 +69,14 @@ class NavigationProgressEvaluator {
         const val REQUIRED_OFF_ROUTE_FIXES = 3
         const val REROUTE_DEBOUNCE_MILLIS = 15_000L
         const val ARRIVAL_METERS = 25.0
+
+        fun distanceMeters(first: GeoPoint, second: GeoPoint): Double {
+            val radius = 6_371_000.0
+            val lat = Math.toRadians(second.latitude - first.latitude)
+            val lon = Math.toRadians(second.longitude - first.longitude)
+            val a = sin(lat / 2) * sin(lat / 2) + cos(Math.toRadians(first.latitude)) *
+                cos(Math.toRadians(second.latitude)) * sin(lon / 2) * sin(lon / 2)
+            return radius * 2 * atan2(sqrt(a), sqrt(1 - a))
+        }
     }
 }

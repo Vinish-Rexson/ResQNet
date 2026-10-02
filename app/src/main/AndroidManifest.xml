@@ -13,6 +13,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
@@ -32,7 +33,12 @@
             android:exported="true" />
         <activity android:name=".ui.OnboardingActivity" android:exported="false" />
         <activity android:name=".ui.MeshControlActivity" android:launchMode="singleTop" />
-        <activity android:name=".ui.NavigateActivity" android:label="Navigate" android:launchMode="singleTop" />
+        <activity
+            android:name=".ui.NavigateActivity"
+            android:label="Navigate"
+            android:launchMode="singleTop"
+            android:supportsPictureInPicture="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboard|keyboardHidden|uiMode" />
         <activity
             android:name=".ui.ChatActivity"
             android:launchMode="singleTop"
@@ -60,7 +66,11 @@
         <service
             android:name=".mesh.MeshService"
             android:exported="false"
-            android:foregroundServiceType="connectedDevice" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="mesh_network_maintenance" />
+        </service>
         <service
             android:name=".navigation.NavigationForegroundService"
             android:exported="false"

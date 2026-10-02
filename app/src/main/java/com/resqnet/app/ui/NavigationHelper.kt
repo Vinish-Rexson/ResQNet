@@ -22,6 +22,42 @@ import kotlinx.coroutines.launch
 fun setupBottomNav(activity: Activity, currentTabId: Int) {
     val bottomNav = activity.findViewById<BottomNavigationView>(R.id.bottomNav) ?: return
     bottomNav.selectedItemId = currentTabId
+    val blueColor = androidx.core.content.ContextCompat.getColor(activity, R.color.bottom_nav_bg)
+    bottomNav.setBackgroundColor(blueColor)
+    bottomNav.backgroundTintList = android.content.res.ColorStateList.valueOf(blueColor)
+
+    // Ensure system navigation bar / safe area matches the exact same deep navy color
+    activity.window.navigationBarColor = blueColor
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+        activity.window.isNavigationBarContrastEnforced = false
+    }
+    androidx.core.view.WindowInsetsControllerCompat(activity.window, activity.window.decorView).isAppearanceLightNavigationBars = false
+
+    // Eliminate the bottom safe-area gap / cream strip caused by fitsSystemWindows on root layout.
+    // The root layout pads only the top (for status bar/toolbar), while bottomNav extends flush
+    // to the physical bottom edge with internal bottom padding to elevate items above the gesture pill.
+    val parentLayout = bottomNav.parent as? ViewGroup
+    if (parentLayout != null) {
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(parentLayout) { v, insets ->
+            val statusBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+            val navBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            v.setPadding(v.paddingLeft, statusBars.top, v.paddingRight, 0)
+            bottomNav.setPadding(0, 0, 0, navBars.bottom)
+            insets
+        }
+        androidx.core.view.ViewCompat.requestApplyInsets(parentLayout)
+
+        parentLayout.post {
+            val root = bottomNav.rootView
+            val insets = androidx.core.view.ViewCompat.getRootWindowInsets(root)
+            if (insets != null) {
+                val statusBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+                val navBars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+                parentLayout.setPadding(parentLayout.paddingLeft, statusBars.top, parentLayout.paddingRight, 0)
+                bottomNav.setPadding(0, 0, 0, navBars.bottom)
+            }
+        }
+    }
 
     // Subtle gentle pop for active tab icon on entry (Instagram style)
     bottomNav.post {

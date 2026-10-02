@@ -72,12 +72,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:background="@color/surface"
-        app:backgroundTint="@color/surface"
+        android:background="@color/bottom_nav_bg"
+        app:backgroundTint="@color/bottom_nav_bg"
         app:menu="@menu/bottom_nav_menu"
         app:itemIconTint="@color/bottom_nav_color"
         app:itemTextColor="@color/bottom_nav_color"
-        app:elevation="0dp"
+        app:elevation="8dp"
         app:labelVisibilityMode="labeled" />
 
 </RelativeLayout>
