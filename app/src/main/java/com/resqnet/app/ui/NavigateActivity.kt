@@ -483,6 +483,11 @@ class NavigateActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         mapView.onResume()
+        findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottomNav)?.let { nav ->
+            if (nav.selectedItemId != R.id.nav_navigate) {
+                nav.selectedItemId = R.id.nav_navigate
+            }
+        }
         sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)?.let { sensor ->
             sensorManager.registerListener(headingListener, sensor, SensorManager.SENSOR_DELAY_UI)
         }

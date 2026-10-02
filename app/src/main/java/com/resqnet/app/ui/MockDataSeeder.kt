@@ -2,6 +2,7 @@ package com.resqnet.app.ui
 
 import com.resqnet.app.ResQNetApplication
 import com.resqnet.app.circles.*
+import com.resqnet.app.contacts.directConversationId
 import com.resqnet.app.data.ContactEntity
 import com.resqnet.app.data.ContactState
 import com.resqnet.app.data.ConversationMessageEntity
@@ -31,7 +32,7 @@ object MockDataSeeder {
                 originSequence = 1L,
                 createdAt = now - 1000L * 60 * 20,
                 expiresAt = now + 1000L * 60 * 60 * 24,
-                text = "All teams check in. Sector 4 medical relief center is now operational.",
+                text = "All teams check in. Sector 4 medical relief center is now operational at 19.0820, 72.8845.",
                 outgoing = false,
                 relayed = true,
                 delivered = true,
@@ -48,7 +49,7 @@ object MockDataSeeder {
                 originSequence = 2L,
                 createdAt = now - 1000L * 60 * 14,
                 expiresAt = now + 1000L * 60 * 60 * 24,
-                text = "Sector 2 team reporting. All 5 members safe. Moving towards bridge checkpoint.",
+                text = "Sector 2 team reporting. All 5 members safe. Moving towards bridge checkpoint 19.0655, 72.8710.",
                 outgoing = true,
                 relayed = true,
                 delivered = true,
@@ -80,13 +81,30 @@ object MockDataSeeder {
                 originNodeId = myNodeId,
                 originName = myName,
                 originSequence = 4L,
-                createdAt = now - 1000L * 60 * 2,
+                createdAt = now - 1000L * 60 * 4,
                 expiresAt = now + 1000L * 60 * 60 * 24,
                 text = "Understood. Requesting emergency power packs at GPS grid 19.0760, 72.8777.",
                 outgoing = true,
                 relayed = true,
                 delivered = false,
                 hopCount = 0
+            ),
+            ConversationMessageEntity(
+                messageId = "mock-msg-5",
+                conversationId = CHANNEL_ID,
+                kind = PacketKind.PUBLIC_TEXT,
+                audienceType = AudienceType.PUBLIC_CHANNEL,
+                audienceId = CHANNEL_ID,
+                originNodeId = "mock-node-alice",
+                originName = "Alice (Base Camp)",
+                originSequence = 5L,
+                createdAt = now - 1000L * 60 * 2,
+                expiresAt = now + 1000L * 60 * 60 * 24,
+                text = "Supplies dispatched. Secondary staging point marked at 19.0915, 72.8640.",
+                outgoing = false,
+                relayed = true,
+                delivered = true,
+                hopCount = 1
             )
         )
         for (m in messages) {
@@ -198,7 +216,7 @@ object MockDataSeeder {
                 originName = "Dr. Priya Sharma",
                 originSequence = 1L,
                 createdAt = now - 1000L * 60 * 25,
-                text = "Triage clinic set up at north gate. We have first aid supplies ready.",
+                text = "Triage clinic set up at north gate (19.0850, 72.8890). We have first aid supplies ready.",
                 outgoing = false,
                 hopCount = 1
             ),
@@ -210,7 +228,7 @@ object MockDataSeeder {
                 originName = myName,
                 originSequence = 2L,
                 createdAt = now - 1000L * 60 * 18,
-                text = "Copy that Dr. Priya. Rescue team is inbound with 3 civilians.",
+                text = "Copy that Dr. Priya. Rescue team is inbound with 3 civilians from 19.0725, 72.8655.",
                 outgoing = true,
                 hopCount = 0
             ),
@@ -222,13 +240,67 @@ object MockDataSeeder {
                 originName = "Rescue Team Lead (Vikram)",
                 originSequence = 3L,
                 createdAt = now - 1000L * 60 * 8,
-                text = "Route 9 bridge is flooded. We are detouring through hill trail. ETA 20 mins.",
+                text = "Route 9 bridge is flooded. We are detouring through hill trail at 19.0690, 72.8812. ETA 20 mins.",
                 outgoing = false,
                 hopCount = 2
+            ),
+            CircleMessageEntity(
+                messageId = "mock-circle-msg-4",
+                circleId = circleAlphaId,
+                membershipVersion = 1L,
+                originNodeId = myNodeId,
+                originName = myName,
+                originSequence = 4L,
+                createdAt = now - 1000L * 60 * 3,
+                text = "Understood Vikram. We will rendezvous with you near coordinates 19.0782, 72.8735.",
+                outgoing = true,
+                hopCount = 0
             )
         )
         for (cm in circleMessages) {
             dao.insertCircleMessage(cm)
+        }
+
+        // Direct Messages with Dr. Priya Sharma
+        val priyaDmConvId = directConversationId(myNodeId, "mock-contact-priya")
+        val directMessages = listOf(
+            ConversationMessageEntity(
+                messageId = "mock-dm-priya-1",
+                conversationId = priyaDmConvId,
+                kind = PacketKind.DIRECT_TEXT,
+                audienceType = AudienceType.DIRECT_NODE,
+                audienceId = "mock-contact-priya",
+                originNodeId = "mock-contact-priya",
+                originName = "Dr. Priya Sharma",
+                originSequence = 1L,
+                createdAt = now - 1000L * 60 * 15,
+                expiresAt = now + 1000L * 60 * 60 * 24,
+                text = "Hi, our medical van is stationed near 19.0835, 72.8790. Let us know if any casualties need transport.",
+                outgoing = false,
+                relayed = true,
+                delivered = true,
+                hopCount = 1
+            ),
+            ConversationMessageEntity(
+                messageId = "mock-dm-priya-2",
+                conversationId = priyaDmConvId,
+                kind = PacketKind.DIRECT_TEXT,
+                audienceType = AudienceType.DIRECT_NODE,
+                audienceId = "mock-contact-priya",
+                originNodeId = myNodeId,
+                originName = myName,
+                originSequence = 2L,
+                createdAt = now - 1000L * 60 * 10,
+                expiresAt = now + 1000L * 60 * 60 * 24,
+                text = "Thanks Dr. Priya! We marked your position at 19.0835, 72.8790 on our offline map.",
+                outgoing = true,
+                relayed = true,
+                delivered = true,
+                hopCount = 0
+            )
+        )
+        for (dm in directMessages) {
+            dao.insertConversationMessage(dm)
         }
 
         // Seed Circle Status Events

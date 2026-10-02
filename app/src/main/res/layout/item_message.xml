@@ -19,6 +19,7 @@
             android:id="@+id/messageAuthor"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:maxWidth="260dp"
             android:textStyle="bold"
             android:textSize="13sp"
             android:textColor="@color/text_primary" />
@@ -27,6 +28,7 @@
             android:id="@+id/messageBody"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:maxWidth="260dp"
             android:textSize="15sp"
             android:textColor="@color/text_primary"
             android:lineSpacingMultiplier="1.3"

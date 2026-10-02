@@ -28,7 +28,7 @@ object CoordinateUtils {
      * Examples: 19.0760, 72.8777 or 19.07600, 72.87770 or -33.8688, 151.2093
      */
     val COORDINATE_REGEX = Regex(
-        """(?<![\d\w.-])([-+]?(?:[1-8]?\d\.\d+|90(?:\.0+)?)),\s*([-+]?(?:180(?:\.0+)?|(?:1[0-7]\d|\d{1,2})\.\d+))(?![\d\w.-])"""
+        """(?<![0-9a-zA-Z])([-+]?(?:[1-8]?\d\.\d+|90(?:\.0+)?)),\s*([-+]?(?:180(?:\.0+)?|(?:1[0-7]\d|\d{1,2})\.\d+))(?![0-9a-zA-Z]|\.\d)"""
     )
 
     data class ExtractedCoordinate(
@@ -108,12 +108,18 @@ object CoordinateUtils {
      */
     fun openNavigate(context: Context, lat: Double, lon: Double, label: String = "Shared Location") {
         val intent = Intent(context, NavigateActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-            putExtra("extra_target_lat", lat)
-            putExtra("extra_target_lon", lon)
-            putExtra("extra_target_label", label)
+            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra(NavigateActivity.EXTRA_TARGET_LAT, lat)
+            putExtra(NavigateActivity.EXTRA_TARGET_LON, lon)
+            putExtra(NavigateActivity.EXTRA_TARGET_LABEL, label)
+        }
+        if (context !is android.app.Activity) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
+        if (context is android.app.Activity) {
+            context.overridePendingTransition(0, 0)
+        }
     }
 
     /**
