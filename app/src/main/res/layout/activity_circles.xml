@@ -19,13 +19,14 @@
             android:background="@color/surface"
             app:elevation="0dp">
 
-            <androidx.appcompat.widget.Toolbar
+            <com.google.android.material.appbar.MaterialToolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
                 android:background="@color/surface"
                 app:titleTextColor="@color/text_primary"
-                app:navigationIconTint="@color/text_primary" />
+                app:navigationIcon="@null"
+                app:popupTheme="@style/ThemeOverlay.ResQNet.Popup" />
 
             <com.google.android.material.tabs.TabLayout
                 android:id="@+id/tabLayout"

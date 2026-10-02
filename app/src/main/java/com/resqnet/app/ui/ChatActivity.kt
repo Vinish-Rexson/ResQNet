@@ -48,6 +48,7 @@ class ChatActivity : AppCompatActivity() {
         // Toolbar
         val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
+        toolbar.navigationIcon = null // top-level tab, no back button
         supportActionBar?.title = "ResQNet"
 
         // Message list

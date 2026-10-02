@@ -66,6 +66,7 @@ class NavigateActivity : AppCompatActivity() {
         MapLibre.getInstance(this)
         setContentView(R.layout.activity_navigate)
         setSupportActionBar(findViewById(R.id.toolbar))
+        findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar).navigationIcon = null // top-level tab
         setupBottomNav(this, R.id.nav_navigate)
         packManager = OfflinePackManager(this, routingEngine = routingEngine)
         mapView = findViewById(R.id.mapView)

@@ -1,248 +1,182 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.drawerlayout.widget.DrawerLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/drawerLayout"
+    android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true">
+    android:fitsSystemWindows="true"
+    android:orientation="vertical"
+    android:background="@color/surface">
 
-    <!-- Main Content -->
-    <LinearLayout
+    <!-- App Bar -->
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:fitsSystemWindows="true"
-        android:orientation="vertical"
-        android:background="@color/surface">
+        android:background="@color/surface"
+        app:elevation="0dp">
 
-        <com.google.android.material.appbar.AppBarLayout
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fitsSystemWindows="true"
+            android:layout_height="?attr/actionBarSize"
             android:background="@color/surface"
-            app:elevation="0dp">
-            <androidx.appcompat.widget.Toolbar
-                android:id="@+id/toolbar"
-                android:layout_width="match_parent"
-                android:layout_height="?attr/actionBarSize"
-                android:background="@color/surface"
-                app:titleTextColor="@color/text_primary"
-                app:navigationIconTint="@color/text_primary" />
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/color_divider" />
-        </com.google.android.material.appbar.AppBarLayout>
-
-        <!-- Status Panel — white card -->
-        <LinearLayout
-            android:id="@+id/statusPanel"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="12dp"
-            android:background="@color/surface_card"
-            android:gravity="center_vertical">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="My Status"
-                    android:textSize="11sp"
-                    android:textAllCaps="true"
-                    android:letterSpacing="0.08"
-                    android:textColor="@color/text_muted" />
-                <TextView
-                    android:id="@+id/myStatusText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/label_unknown"
-                    android:textStyle="bold"
-                    android:textColor="@color/color_unknown"
-                    android:textSize="16sp" />
-                <TextView
-                    android:id="@+id/myStatusNote"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="13sp"
-                    android:textColor="@color/text_muted"
-                    android:visibility="gone" />
-            </LinearLayout>
-
-            <Button
-                android:id="@+id/btnUpdateStatus"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="@string/action_update_status"
-                android:textSize="12sp"
-                app:strokeColor="@color/text_primary"
-                android:textColor="@color/text_primary"
-                app:cornerRadius="18dp" />
-        </LinearLayout>
+            app:titleTextColor="@color/text_primary"
+            app:navigationIcon="@drawable/ic_arrow_back"
+            app:navigationIconTint="@color/text_primary"
+            app:popupTheme="@style/ThemeOverlay.ResQNet.Popup" />
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:background="@color/color_divider" />
+    </com.google.android.material.appbar.AppBarLayout>
 
-        <!-- Chat Area -->
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1">
+    <!-- Status Panel — white card -->
+    <LinearLayout
+        android:id="@+id/statusPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp"
+        android:background="@color/surface_card"
+        android:gravity="center_vertical">
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/messageList"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:padding="16dp"
-                android:clipToPadding="false" />
-
-            <TextView
-                android:id="@+id/emptyState"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:text="No messages yet in this circle."
-                android:textColor="@color/text_muted"
-                android:textSize="15sp"
-                android:visibility="gone" />
-        </FrameLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="@color/color_divider" />
-
-        <!-- Input Area -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingHorizontal="12dp"
-            android:paddingTop="10dp"
-            android:paddingBottom="10dp"
-            android:background="@color/surface">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <EditText
-                    android:id="@+id/chatInput"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:hint="@string/hint_message_dm"
-                    android:minHeight="44dp"
-                    android:maxLines="5"
-                    android:background="@drawable/bg_input_box"
-                    android:paddingHorizontal="16dp"
-                    android:paddingVertical="10dp"
-                    android:inputType="textMultiLine|textCapSentences"
-                    android:textSize="14sp"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_muted" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnSend"
-                    android:layout_width="46dp"
-                    android:layout_height="46dp"
-                    android:layout_marginStart="10dp"
-                    app:backgroundTint="@color/palette_amber"
-                    app:cornerRadius="23dp"
-                    app:icon="@drawable/ic_send_plane"
-                    app:iconTint="@color/resq_primary"
-                    app:iconGravity="textStart"
-                    app:iconPadding="0dp"
-                    android:padding="0dp"
-                    app:elevation="0dp" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/chatByteCount"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="0 / 500 bytes"
-                android:textSize="11sp"
-                android:textColor="@color/text_muted" />
-        </LinearLayout>
-
-    </LinearLayout>
-
-    <!-- Drawer (Member List) -->
-    <com.google.android.material.navigation.NavigationView
-        android:id="@+id/navigationView"
-        android:layout_width="300dp"
-        android:layout_height="match_parent"
-        android:layout_gravity="end"
-        android:background="@color/surface_card">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_weight="1"
             android:orientation="vertical">
 
             <TextView
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:padding="20dp"
-                android:text="Circle Members"
-                android:textSize="16sp"
+                android:text="My Status"
+                android:textSize="11sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:textColor="@color/text_muted" />
+
+            <TextView
+                android:id="@+id/myStatusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_unknown"
                 android:textStyle="bold"
-                android:background="@color/surface_card"
-                android:textColor="@color/text_primary" />
+                android:textColor="@color/color_unknown"
+                android:textSize="16sp" />
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/color_divider" />
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/memberList"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/color_divider" />
-
-            <Button
-                android:id="@+id/btnInviteMember"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/myStatusNote"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="12dp"
-                android:text="@string/action_invite_member"
-                app:strokeColor="@color/text_primary"
-                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:textColor="@color/text_muted"
                 android:visibility="gone" />
-
-            <Button
-                android:id="@+id/btnLeaveDissolve"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:layout_marginEnd="12dp"
-                android:layout_marginBottom="16dp"
-                android:text="@string/action_leave"
-                android:textColor="@color/alert"
-                app:strokeColor="@color/alert" />
         </LinearLayout>
 
-    </com.google.android.material.navigation.NavigationView>
+        <Button
+            android:id="@+id/btnUpdateStatus"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="@string/action_update_status"
+            android:textSize="12sp"
+            app:strokeColor="@color/text_primary"
+            android:textColor="@color/text_primary"
+            app:cornerRadius="10dp" />
+    </LinearLayout>
 
-</androidx.drawerlayout.widget.DrawerLayout>
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/color_divider" />
+
+    <!-- Chat Area -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/messageList"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="16dp"
+            android:clipToPadding="false" />
+
+        <TextView
+            android:id="@+id/emptyState"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="No messages yet in this circle."
+            android:textColor="@color/text_muted"
+            android:textSize="15sp"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/color_divider" />
+
+    <!-- Input Area -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:background="@color/surface">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <EditText
+                android:id="@+id/chatInput"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/hint_message_dm"
+                android:minHeight="44dp"
+                android:maxLines="5"
+                android:background="@drawable/bg_input_box"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="10dp"
+                android:inputType="textMultiLine|textCapSentences"
+                android:textSize="14sp"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_muted" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSend"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:layout_marginStart="10dp"
+                app:backgroundTint="@color/palette_amber"
+                app:cornerRadius="23dp"
+                app:icon="@drawable/ic_send_plane"
+                app:iconTint="@color/resq_primary"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                android:padding="0dp"
+                app:elevation="0dp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/chatByteCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="0 / 500 bytes"
+            android:textSize="11sp"
+            android:textColor="@color/text_muted" />
+    </LinearLayout>
+
+</LinearLayout>

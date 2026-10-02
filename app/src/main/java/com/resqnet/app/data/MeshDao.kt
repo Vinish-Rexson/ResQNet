@@ -104,6 +104,22 @@ interface MeshDao {
     @Query("SELECT * FROM circle_status_events WHERE circleId = :circleId ORDER BY originSequence ASC, packetId ASC")
     fun observeCircleStatuses(circleId: String): Flow<List<CircleStatusEventEntity>>
 
+    /** Returns latest status event per member across ALL circles for live card summary. */
+    @androidx.room.RewriteQueriesToDropUnusedColumns
+    @Query("""
+        SELECT * FROM circle_status_events cse
+        INNER JOIN (
+            SELECT circleId, memberNodeId, MAX(originSequence) AS maxSeq
+            FROM circle_status_events
+            GROUP BY circleId, memberNodeId
+        ) latest ON cse.circleId = latest.circleId
+                 AND cse.memberNodeId = latest.memberNodeId
+                 AND cse.originSequence = latest.maxSeq
+        ORDER BY cse.circleId ASC, cse.memberNodeId ASC
+    """)
+    fun observeLatestStatusPerMemberAllCircles(): Flow<List<CircleStatusEventEntity>>
+
+
     @Query("SELECT * FROM contacts ORDER BY displayName COLLATE NOCASE ASC, nodeId ASC")
     fun observeContacts(): Flow<List<ContactEntity>>
 

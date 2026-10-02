@@ -70,6 +70,7 @@ interface CircleRepository {
     suspend fun latestStatus(circleId: String, memberNodeId: String): CircleStatusEventEntity?
     suspend fun statusHistory(circleId: String, memberNodeId: String): List<CircleStatusEventEntity>
     fun observeStatuses(circleId: String): Flow<List<CircleStatusEventEntity>>
+    fun observeLatestStatusPerMemberAllCircles(): Flow<List<CircleStatusEventEntity>>
     suspend fun prepareAcceptance(inviteId: String, localNodeId: String, now: Long): PreparedCircleAcceptance
     suspend fun prepareLeave(circleId: String, localNodeId: String, now: Long): PreparedCircleLeave
 }

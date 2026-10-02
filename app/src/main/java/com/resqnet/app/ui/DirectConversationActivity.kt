@@ -42,12 +42,29 @@ class DirectConversationActivity : AppCompatActivity() {
         model.remoteDisplayName = intent.getStringExtra(EXTRA_DISPLAY_NAME) ?: "Unknown"
 
         setContentView(R.layout.activity_direct_conversation)
-        setSupportActionBar(findViewById(R.id.toolbar))
+        val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
         supportActionBar?.apply {
-            title = model.remoteDisplayName
             setDisplayHomeAsUpEnabled(true)
+            setHomeAsUpIndicator(R.drawable.ic_arrow_back)
+            // Suppress default title — we use a custom view below
+            setDisplayShowTitleEnabled(false)
         }
-        setupMeshAppBarBadge(this)
+        toolbar.setNavigationOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
+        }
+        toolbar.setNavigationIconTint(getColor(R.color.text_primary))
+
+        // Inflate custom avatar + name title
+        val titleView = layoutInflater.inflate(R.layout.toolbar_dm_title, toolbar, false)
+        val avatarView = titleView.findViewById<TextView>(R.id.toolbarAvatar)
+        val titleText = titleView.findViewById<TextView>(R.id.toolbarTitle)
+        val initial = model.remoteDisplayName.trimStart().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+        avatarView.text = initial
+        titleText.text = model.remoteDisplayName
+        toolbar.addView(titleView)
+
+        setupMeshAppBarBadge(this, toolbar)
 
         val list = findViewById<RecyclerView>(R.id.dmMessageList).apply {
             layoutManager = LinearLayoutManager(this@DirectConversationActivity).apply {

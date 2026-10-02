@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Global corner radii — unified across the whole app -->
+    <dimen name="radius_button">10dp</dimen>
+    <dimen name="radius_card">12dp</dimen>
+    <dimen name="radius_dialog">16dp</dimen>
+    <dimen name="radius_input">10dp</dimen>
+    <dimen name="radius_pill">100dp</dimen>
+    <dimen name="radius_icon_badge">10dp</dimen>
+</resources>

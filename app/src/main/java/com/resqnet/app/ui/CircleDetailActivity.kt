@@ -1,6 +1,8 @@
 package com.resqnet.app.ui
 
-import android.app.AlertDialog
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -8,8 +10,6 @@ import android.view.*
 import android.widget.*
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.GravityCompat
-import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -17,6 +17,12 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import androidx.appcompat.view.ContextThemeWrapper
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.resqnet.app.R
 import com.resqnet.app.ResQNetApplication
@@ -40,38 +46,37 @@ class CircleDetailActivity : AppCompatActivity() {
     private val messageAdapter = CircleMessageAdapter()
     private val memberAdapter = MemberAdapter()
 
-    private lateinit var drawerLayout: DrawerLayout
+    private lateinit var rootLayout: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         model.circleId = intent.getStringExtra(EXTRA_CIRCLE_ID) ?: run {
             finish(); return
         }
-        
+
         setContentView(R.layout.activity_circle_detail)
-        
-        val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        rootLayout = findViewById(R.id.rootLayout)
+
+        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        toolbar.setNavigationOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
+        }
+        toolbar.setNavigationIconTint(getColor(R.color.text_primary))
+        toolbar.overflowIcon?.setTint(getColor(R.color.text_primary))
         setupMeshAppBarBadge(this, toolbar)
-        
-        drawerLayout = findViewById(R.id.drawerLayout)
 
         val messageList = findViewById<RecyclerView>(R.id.messageList).apply {
             layoutManager = LinearLayoutManager(this@CircleDetailActivity).apply { stackFromEnd = true }
             adapter = messageAdapter
         }
 
-        findViewById<RecyclerView>(R.id.memberList).apply {
-            layoutManager = LinearLayoutManager(this@CircleDetailActivity)
-            adapter = memberAdapter
-        }
-
         val input = findViewById<EditText>(R.id.chatInput)
         val byteCount = findViewById<TextView>(R.id.chatByteCount)
         val emptyState = findViewById<TextView>(R.id.emptyState)
-        
+
         input.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -98,49 +103,17 @@ class CircleDetailActivity : AppCompatActivity() {
             showUpdateStatusDialog()
         }
 
-        findViewById<Button>(R.id.btnInviteMember).setOnClickListener {
-            showInviteMemberDialog()
-        }
-
-        val btnLeaveDissolve = findViewById<Button>(R.id.btnLeaveDissolve)
-        btnLeaveDissolve.setOnClickListener {
-            val isOwner = model.uiState.value.circle?.ownerNodeId == (application as ResQNetApplication).signer.nodeId
-            if (isOwner) {
-                AlertDialog.Builder(this)
-                    .setTitle(R.string.action_dissolve)
-                    .setMessage("Are you sure you want to dissolve this circle? This action cannot be undone.")
-                    .setPositiveButton(R.string.action_dissolve) { _, _ ->
-                        model.dissolve { err ->
-                            if (err != null) showSnack(err) else finish()
-                        }
-                    }
-                    .setNegativeButton(R.string.action_cancel, null)
-                    .show()
-            } else {
-                AlertDialog.Builder(this)
-                    .setTitle(R.string.action_leave)
-                    .setMessage("Are you sure you want to leave this circle?")
-                    .setPositiveButton(R.string.action_leave) { _, _ ->
-                        model.leave { err ->
-                            if (err != null) showSnack(err) else finish()
-                        }
-                    }
-                    .setNegativeButton(R.string.action_cancel, null)
-                    .show()
-            }
-        }
-        
         memberAdapter.onRemove = { uiModel ->
-            AlertDialog.Builder(this)
-                .setTitle(R.string.action_remove_member)
-                .setMessage("Remove ${uiModel.displayName} from the circle?")
-                .setPositiveButton(R.string.action_remove_member) { _, _ ->
-                    model.removeMember(uiModel.member.nodeId) { err ->
-                        if (err != null) showSnack(err)
-                    }
+            showConfirmDialog(
+                title = getString(R.string.action_remove_member),
+                message = "Remove ${uiModel.displayName} from the circle?",
+                confirmText = getString(R.string.action_remove_member),
+                isDestructive = true
+            ) {
+                model.removeMember(uiModel.member.nodeId) { err ->
+                    if (err != null) showSnack(err)
                 }
-                .setNegativeButton(R.string.action_cancel, null)
-                .show()
+            }
         }
 
         lifecycleScope.launch {
@@ -148,29 +121,30 @@ class CircleDetailActivity : AppCompatActivity() {
                 model.load() // Initial load
                 model.uiState.collect { state ->
                     supportActionBar?.title = state.circle?.name ?: "Circle"
-                    
+
                     val isOwner = state.circle?.ownerNodeId == (application as ResQNetApplication).signer.nodeId
-                    findViewById<Button>(R.id.btnInviteMember).visibility = if (isOwner) View.VISIBLE else View.GONE
-                    btnLeaveDissolve.text = getString(if (isOwner) R.string.action_dissolve else R.string.action_leave)
-                    
+
                     messageAdapter.submitList(state.messages) {
                         if (state.messages.isNotEmpty()) messageList.scrollToPosition(state.messages.lastIndex)
                     }
                     emptyState.visibility = if (state.messages.isEmpty()) View.VISIBLE else View.GONE
-                    
+
                     memberAdapter.isOwner = isOwner
                     memberAdapter.localNodeId = (application as ResQNetApplication).signer.nodeId
                     memberAdapter.submitList(state.members)
-                    
+
                     updateStatusPanel(state.localStatus)
+                    invalidateOptionsMenu()
                 }
             }
         }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        findViewById<MaterialToolbar>(R.id.toolbar).overflowIcon?.setTint(getColor(R.color.text_primary))
         menu.add(0, MENU_MEMBERS, 0, "Members").apply {
-            setIcon(R.drawable.ic_more_vert)
+            setIcon(R.drawable.ic_nav_circles)
+            icon?.setTint(getColor(R.color.text_primary))
             setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
         }
         menu.add(0, MENU_RENAME, 1, "Rename circle").apply {
@@ -180,6 +154,7 @@ class CircleDetailActivity : AppCompatActivity() {
     }
 
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        findViewById<MaterialToolbar>(R.id.toolbar).overflowIcon?.setTint(getColor(R.color.text_primary))
         val isOwner = model.uiState.value.circle?.ownerNodeId == (application as ResQNetApplication).signer.nodeId
         menu.findItem(MENU_RENAME)?.isVisible = isOwner
         return super.onPrepareOptionsMenu(menu)
@@ -189,11 +164,7 @@ class CircleDetailActivity : AppCompatActivity() {
         return when (item.itemId) {
             android.R.id.home -> { onBackPressedDispatcher.onBackPressed(); true }
             MENU_MEMBERS -> {
-                if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
-                    drawerLayout.closeDrawer(GravityCompat.END)
-                } else {
-                    drawerLayout.openDrawer(GravityCompat.END)
-                }
+                showMembersBottomSheet()
                 true
             }
             MENU_RENAME -> { showRenameDialog(); true }
@@ -201,29 +172,250 @@ class CircleDetailActivity : AppCompatActivity() {
         }
     }
 
-    private fun showRenameDialog() {
-        val input = EditText(this).apply {
-            hint = "New circle name"
-            setText(model.uiState.value.circle?.name ?: "")
-            setPadding(56, 24, 56, 8)
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+    // ── Members Bottom Sheet ────────────────────────────────────────────────
+
+    private fun showMembersBottomSheet() {
+        val sheetView = layoutInflater.inflate(R.layout.bottom_sheet_circle_members, null)
+        val sheetDialog = BottomSheetDialog(this)
+        sheetDialog.setContentView(sheetView)
+
+        sheetDialog.behavior.state = BottomSheetBehavior.STATE_EXPANDED
+        sheetDialog.behavior.skipCollapsed = true
+        sheetDialog.window?.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            ?.setBackgroundResource(android.R.color.transparent)
+
+        val memberRecycler = sheetView.findViewById<RecyclerView>(R.id.memberList)
+        val btnInvite = sheetView.findViewById<Button>(R.id.btnInviteMember)
+        val btnLeave = sheetView.findViewById<Button>(R.id.btnLeaveDissolve)
+        val btnClose = sheetView.findViewById<ImageButton>(R.id.btnCloseSheet)
+
+        memberRecycler.layoutManager = LinearLayoutManager(this)
+        memberRecycler.adapter = memberAdapter
+
+        val isOwner = model.uiState.value.circle?.ownerNodeId == (application as ResQNetApplication).signer.nodeId
+        btnInvite.visibility = if (isOwner) View.VISIBLE else View.GONE
+        btnLeave.text = getString(if (isOwner) R.string.action_dissolve else R.string.action_leave)
+
+        btnClose.setOnClickListener { sheetDialog.dismiss() }
+
+        btnInvite.setOnClickListener {
+            sheetDialog.dismiss()
+            showInviteMemberDialog()
         }
-        AlertDialog.Builder(this)
-            .setTitle("Rename circle")
-            .setView(input)
-            .setPositiveButton("Rename") { _, _ ->
-                val name = input.text.toString().trim()
-                if (name.isNotEmpty()) {
-                    model.rename(name) { err ->
-                        if (err != null) showSnack(err) else supportActionBar?.title = name
+
+        btnLeave.setOnClickListener {
+            sheetDialog.dismiss()
+            confirmLeaveOrDissolve(isOwner)
+        }
+
+        sheetDialog.show()
+    }
+
+    private fun confirmLeaveOrDissolve(isOwner: Boolean) {
+        if (isOwner) {
+            showConfirmDialog(
+                title = getString(R.string.action_dissolve),
+                message = "Are you sure you want to dissolve this circle? This action cannot be undone.",
+                confirmText = getString(R.string.action_dissolve),
+                isDestructive = true
+            ) {
+                model.dissolve { err ->
+                    if (err != null) showSnack(err) else finish()
+                }
+            }
+        } else {
+            showConfirmDialog(
+                title = getString(R.string.action_leave),
+                message = "Are you sure you want to leave this circle?",
+                confirmText = getString(R.string.action_leave),
+                isDestructive = true
+            ) {
+                model.leave { err ->
+                    if (err != null) showSnack(err) else finish()
+                }
+            }
+        }
+    }
+
+    // ── Custom Dialogs ──────────────────────────────────────────────────────
+
+    private fun showConfirmDialog(
+        title: String,
+        message: String,
+        confirmText: String,
+        isDestructive: Boolean = true,
+        onConfirm: () -> Unit
+    ) {
+        val view = layoutInflater.inflate(R.layout.dialog_confirm_action, null)
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setView(view)
+            .setBackground(ColorDrawable(Color.TRANSPARENT))
+            .create()
+
+        val tvTitle = view.findViewById<TextView>(R.id.dialogConfirmTitle)
+        val tvMsg = view.findViewById<TextView>(R.id.dialogConfirmMessage)
+        val btnCancel = view.findViewById<View>(R.id.dialogConfirmCancelButton)
+        val btnAction = view.findViewById<MaterialButton>(R.id.dialogConfirmActionButton)
+        val iconContainer = view.findViewById<FrameLayout>(R.id.dialogIconContainer)
+        val icon = view.findViewById<ImageView>(R.id.dialogIcon)
+
+        tvTitle.text = title
+        tvMsg.text = message
+        btnAction.text = confirmText
+
+        if (!isDestructive) {
+            btnAction.backgroundTintList = ColorStateList.valueOf(getColor(R.color.palette_amber))
+            btnAction.setTextColor(getColor(R.color.palette_deep_navy))
+            iconContainer.backgroundTintList = ColorStateList.valueOf(getColor(R.color.palette_amber_subtle))
+            icon.imageTintList = ColorStateList.valueOf(getColor(R.color.palette_amber))
+        }
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+        btnAction.setOnClickListener {
+            dialog.dismiss()
+            onConfirm()
+        }
+        dialog.show()
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+    }
+
+    private fun showRenameDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_rename_circle, null)
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setView(view)
+            .setBackground(ColorDrawable(Color.TRANSPARENT))
+            .create()
+
+        val input = view.findViewById<EditText>(R.id.dialogRenameInput)
+        val btnCancel = view.findViewById<View>(R.id.dialogRenameCancelButton)
+        val btnSave = view.findViewById<View>(R.id.dialogRenameSaveButton)
+
+        input.setText(model.uiState.value.circle?.name ?: "")
+        input.setSelection(input.text.length)
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+        btnSave.setOnClickListener {
+            val name = input.text.toString().trim()
+            if (name.isNotEmpty()) {
+                dialog.dismiss()
+                model.rename(name) { err ->
+                    if (err != null) showSnack(err) else supportActionBar?.title = name
+                }
+            } else {
+                input.error = "Please enter a circle name"
+            }
+        }
+        dialog.show()
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        input.requestFocus()
+    }
+
+    private fun showUpdateStatusDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_update_status, null)
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setView(view)
+            .setBackground(ColorDrawable(Color.TRANSPARENT))
+            .create()
+
+        val rg = view.findViewById<RadioGroup>(R.id.statusRadioGroup)
+        val rbSafe = view.findViewById<RadioButton>(R.id.rbSafe)
+        val rbNeedHelp = view.findViewById<RadioButton>(R.id.rbNeedHelp)
+        val rbUnknown = view.findViewById<RadioButton>(R.id.rbUnknown)
+        val noteInput = view.findViewById<EditText>(R.id.statusNoteInput)
+        val btnCancel = view.findViewById<View>(R.id.dialogCancelButton)
+        val btnUpdate = view.findViewById<View>(R.id.dialogUpdateButton)
+
+        val currentStatus = model.uiState.value.localStatus?.status ?: SafetyStatus.UNKNOWN
+        when (currentStatus) {
+            SafetyStatus.SAFE -> rbSafe.isChecked = true
+            SafetyStatus.NEED_HELP -> rbNeedHelp.isChecked = true
+            SafetyStatus.UNKNOWN -> rbUnknown.isChecked = true
+        }
+        noteInput.setText(model.uiState.value.localStatus?.note ?: "")
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+        btnUpdate.setOnClickListener {
+            val newStatus = when (rg.checkedRadioButtonId) {
+                R.id.rbSafe -> SafetyStatus.SAFE
+                R.id.rbNeedHelp -> SafetyStatus.NEED_HELP
+                else -> SafetyStatus.UNKNOWN
+            }
+            dialog.dismiss()
+            model.updateStatus(newStatus, noteInput.text.toString().trim().ifEmpty { null }) { err ->
+                if (err != null) showSnack(err)
+            }
+        }
+
+        dialog.show()
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+    }
+
+    private fun showInviteMemberDialog() {
+        lifecycleScope.launch {
+            val app = application as ResQNetApplication
+            val contacts = app.contacts.observeContacts().first()
+            val currentMemberIds = model.uiState.value.members.map { it.member.nodeId }.toSet()
+            val trusted = contacts.filter { it.state == ContactState.TRUSTED && it.nodeId !in currentMemberIds }
+
+            val view = layoutInflater.inflate(R.layout.dialog_invite_member, null)
+            val dialog = MaterialAlertDialogBuilder(this@CircleDetailActivity)
+                .setView(view)
+                .setBackground(ColorDrawable(Color.TRANSPARENT))
+                .create()
+
+            val recycler = view.findViewById<RecyclerView>(R.id.inviteContactList)
+            val emptyTv = view.findViewById<TextView>(R.id.tvNoTrustedContacts)
+            val btnCancel = view.findViewById<View>(R.id.dialogInviteCancelButton)
+
+            btnCancel.setOnClickListener { dialog.dismiss() }
+
+            if (trusted.isEmpty()) {
+                emptyTv.visibility = View.VISIBLE
+                recycler.visibility = View.GONE
+            } else {
+                emptyTv.visibility = View.GONE
+                recycler.visibility = View.VISIBLE
+                recycler.layoutManager = LinearLayoutManager(this@CircleDetailActivity)
+                recycler.adapter = object : RecyclerView.Adapter<InviteContactViewHolder>() {
+                    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): InviteContactViewHolder {
+                        val row = layoutInflater.inflate(R.layout.item_invite_contact, parent, false)
+                        return InviteContactViewHolder(row)
+                    }
+
+                    override fun getItemCount() = trusted.size
+
+                    override fun onBindViewHolder(holder: InviteContactViewHolder, position: Int) {
+                        val contact = trusted[position]
+                        holder.avatar.text = contact.displayName.trimStart().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+                        holder.name.text = contact.displayName
+                        val shortKey = if (contact.nodeId.length > 8) contact.nodeId.take(8) + "..." else contact.nodeId
+                        holder.fingerprint.text = shortKey
+                        holder.btnInvite.setOnClickListener {
+                            dialog.dismiss()
+                            model.inviteMember(contact.nodeId) { err ->
+                                if (err != null) showSnack(err) else showSnack("Invited ${contact.displayName}")
+                            }
+                        }
+                        holder.itemView.setOnClickListener {
+                            holder.btnInvite.performClick()
+                        }
                     }
                 }
             }
-            .setNegativeButton(R.string.action_cancel, null)
-            .show()
+
+            dialog.show()
+            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        }
     }
 
-    private fun showSnack(msg: String) = Snackbar.make(drawerLayout, msg, Snackbar.LENGTH_LONG).show()
+    private class InviteContactViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val avatar: TextView = view.findViewById(R.id.inviteContactAvatar)
+        val name: TextView = view.findViewById(R.id.inviteContactName)
+        val fingerprint: TextView = view.findViewById(R.id.inviteContactFingerprint)
+        val btnInvite: MaterialButton = view.findViewById(R.id.btnDoInvite)
+    }
+
+    private fun showSnack(msg: String) = Snackbar.make(rootLayout, msg, Snackbar.LENGTH_LONG).show()
 
     private fun updateStatusPanel(status: CircleStatusEventEntity?) {
         val tvStatus = findViewById<TextView>(R.id.myStatusText)
@@ -246,77 +438,6 @@ class CircleDetailActivity : AppCompatActivity() {
                 tvNote.visibility = View.VISIBLE
                 tvNote.text = status.note
             }
-        }
-    }
-
-    private fun showUpdateStatusDialog() {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(56, 32, 56, 16)
-        }
-        val rg = RadioGroup(this)
-        val rbSafe = RadioButton(this).apply { text = getString(R.string.label_safe) }
-        val rbNeedHelp = RadioButton(this).apply { text = getString(R.string.label_need_help) }
-        val rbUnknown = RadioButton(this).apply { text = getString(R.string.label_unknown) }
-        rg.addView(rbSafe); rg.addView(rbNeedHelp); rg.addView(rbUnknown)
-
-        val currentStatus = model.uiState.value.localStatus?.status ?: SafetyStatus.UNKNOWN
-        when (currentStatus) {
-            SafetyStatus.SAFE -> rbSafe.isChecked = true
-            SafetyStatus.NEED_HELP -> rbNeedHelp.isChecked = true
-            SafetyStatus.UNKNOWN -> rbUnknown.isChecked = true
-        }
-
-        val noteInput = EditText(this).apply {
-            hint = getString(R.string.hint_status_note)
-            setText(model.uiState.value.localStatus?.note)
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-        }
-
-        layout.addView(rg)
-        layout.addView(noteInput)
-
-        AlertDialog.Builder(this)
-            .setTitle(R.string.title_update_status)
-            .setView(layout)
-            .setPositiveButton("Update") { _, _ ->
-                val newStatus = when (rg.checkedRadioButtonId) {
-                    rbSafe.id -> SafetyStatus.SAFE
-                    rbNeedHelp.id -> SafetyStatus.NEED_HELP
-                    else -> SafetyStatus.UNKNOWN
-                }
-                model.updateStatus(newStatus, noteInput.text.toString().trim().ifEmpty { null }) { err ->
-                    if (err != null) showSnack(err)
-                }
-            }
-            .setNegativeButton(R.string.action_cancel, null)
-            .show()
-    }
-
-    private fun showInviteMemberDialog() {
-        lifecycleScope.launch {
-            // Fetch contacts to show in dialog
-            val app = application as ResQNetApplication
-            val contacts = app.contacts.observeContacts().first()
-            val trusted = contacts.filter { it.state == ContactState.TRUSTED }
-            
-            if (trusted.isEmpty()) {
-                showSnack("No trusted contacts available to invite.")
-                return@launch
-            }
-            
-            val names = trusted.map { it.displayName }.toTypedArray()
-            
-            AlertDialog.Builder(this@CircleDetailActivity)
-                .setTitle(R.string.title_invite_member)
-                .setItems(names) { _, which ->
-                    val contact = trusted[which]
-                    model.inviteMember(contact.nodeId) { err ->
-                        if (err != null) showSnack(err) else showSnack("Invited ${contact.displayName}")
-                    }
-                }
-                .setNegativeButton(R.string.action_cancel, null)
-                .show()
         }
     }
 
@@ -359,7 +480,7 @@ class CircleDetailActivity : AppCompatActivity() {
 
             holder.author.text = if (isOutgoing) "You" else msg.originName
             holder.body.text = msg.text
-            val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(msg.createdAt))
+            val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.createdAt))
 
             // Show delivery progress for outgoing messages
             val meta = if (isOutgoing) {
@@ -399,13 +520,13 @@ class CircleDetailActivity : AppCompatActivity() {
             val uiModel = getItem(position)
             val member = uiModel.member
             val owner = model.uiState.value.circle?.ownerNodeId
-            
+
             holder.avatar.text = uiModel.displayName.trimStart().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
             holder.name.text = if (member.nodeId == localNodeId) "You" else uiModel.displayName
-            
+
             val isMemberOwner = member.nodeId == owner
             holder.role.text = if (isMemberOwner) "Owner" else "Member"
-            
+
             val memStatus = uiModel.status
             if (memStatus == null) {
                 holder.status.text = "Unknown"
@@ -423,7 +544,7 @@ class CircleDetailActivity : AppCompatActivity() {
             if (isOwner && !isMemberOwner) {
                 holder.btnOverflow.visibility = View.VISIBLE
                 holder.btnOverflow.setOnClickListener {
-                    val popup = PopupMenu(it.context, it)
+                    val popup = PopupMenu(ContextThemeWrapper(it.context, R.style.ThemeOverlay_ResQNet_Popup), it)
                     popup.menu.add(R.string.action_remove_member).setOnMenuItemClickListener {
                         onRemove(uiModel)
                         true

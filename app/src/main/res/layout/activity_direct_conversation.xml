@@ -15,13 +15,15 @@
         android:background="@color/surface"
         app:elevation="0dp">
 
-        <androidx.appcompat.widget.Toolbar
+        <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="@color/surface"
             app:titleTextColor="@color/text_primary"
-            app:navigationIconTint="@color/text_primary" />
+            app:navigationIcon="@drawable/ic_arrow_back"
+            app:navigationIconTint="@color/text_primary"
+            app:popupTheme="@style/ThemeOverlay.ResQNet.Popup" />
 
         <View
             android:layout_width="match_parent"
@@ -102,7 +104,7 @@
                 android:layout_height="46dp"
                 android:layout_marginStart="10dp"
                 app:backgroundTint="@color/palette_amber"
-                app:cornerRadius="23dp"
+                app:cornerRadius="24dp"
                 app:icon="@drawable/ic_send_plane"
                 app:iconTint="@color/resq_primary"
                 app:iconGravity="textStart"

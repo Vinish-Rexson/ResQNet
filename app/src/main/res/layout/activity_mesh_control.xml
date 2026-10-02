@@ -20,6 +20,7 @@
             android:layout_height="?attr/actionBarSize"
             android:background="@color/surface"
             app:title="Mesh Control"
+            app:navigationIcon="@null"
             app:titleTextColor="@color/text_primary" />
 
         <View
@@ -86,7 +87,7 @@
                         android:textSize="13sp"
                         android:textColor="@color/palette_deep_navy"
                         app:backgroundTint="@color/palette_amber"
-                        app:cornerRadius="8dp"
+                        app:cornerRadius="10dp"
                         android:layout_marginEnd="8dp" />
 
                     <com.google.android.material.button.MaterialButton
@@ -100,7 +101,7 @@
                         android:textColor="@color/palette_alert"
                         app:strokeColor="@color/palette_alert"
                         app:strokeWidth="1dp"
-                        app:cornerRadius="8dp" />
+                        app:cornerRadius="10dp" />
                 </LinearLayout>
 
             </LinearLayout>
@@ -143,7 +144,7 @@
                     android:layout_marginTop="12dp"
                     app:strokeColor="@color/text_primary"
                     android:textColor="@color/text_primary"
-                    app:cornerRadius="24dp" />
+                    app:cornerRadius="10dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/startMeshButton"
@@ -154,7 +155,7 @@
                     android:textStyle="bold"
                     android:textColor="@color/white"
                     app:backgroundTint="@color/resq_primary"
-                    app:cornerRadius="26dp"
+                    app:cornerRadius="10dp"
                     android:layout_marginTop="20dp" />
 
                 <Button
@@ -168,7 +169,7 @@
                     android:layout_marginTop="12dp"
                     app:strokeColor="@color/alert"
                     android:textColor="@color/alert"
-                    app:cornerRadius="26dp" />
+                    app:cornerRadius="10dp" />
 
                 <TextView
                     android:layout_width="match_parent"
@@ -178,6 +179,48 @@
                     android:textSize="12sp"
                     android:lineSpacingMultiplier="1.3"
                     android:layout_marginTop="16dp" />
+
+            </LinearLayout>
+
+            <!-- Developer / Diagnostics Card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card_rounded"
+                android:padding="16dp"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Diagnostics &amp; Testing"
+                    android:textSize="12sp"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.08"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_muted" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Inspect network topology, force test roles, or seed mock data to preview UI components."
+                    android:textSize="13sp"
+                    android:textColor="@color/text_muted"
+                    android:layout_marginTop="6dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOpenDiagnostics"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="Open Diagnostics &amp; Mock Data"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    app:strokeColor="@color/color_divider"
+                    app:cornerRadius="10dp"
+                    android:layout_marginTop="12dp" />
 
             </LinearLayout>
 

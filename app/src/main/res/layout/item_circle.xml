@@ -21,6 +21,7 @@
         android:gravity="center_vertical"
         android:background="?attr/selectableItemBackground">
 
+        <!-- Avatar -->
         <TextView
             android:id="@+id/circleAvatar"
             android:layout_width="48dp"
@@ -31,6 +32,7 @@
             android:textSize="20sp"
             android:textStyle="bold" />
 
+        <!-- Name + subtitle + status pills -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -50,9 +52,61 @@
                 android:id="@+id/circleState"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:textSize="13sp"
+                android:layout_marginTop="2dp"
+                android:textSize="12sp"
                 android:textColor="@color/text_muted" />
+
+            <!-- Status pills row — hidden when no statuses reported -->
+            <LinearLayout
+                android:id="@+id/statusPillsRow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp"
+                android:visibility="gone">
+
+                <!-- Safe pill -->
+                <TextView
+                    android:id="@+id/pillSafe"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="3dp"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/color_safe"
+                    android:background="@drawable/bg_pill_safe"
+                    android:layout_marginEnd="6dp"
+                    android:visibility="gone" />
+
+                <!-- Need Help pill -->
+                <TextView
+                    android:id="@+id/pillNeedHelp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="3dp"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/color_need_help"
+                    android:background="@drawable/bg_pill_alert"
+                    android:layout_marginEnd="6dp"
+                    android:visibility="gone" />
+
+                <!-- Unknown pill -->
+                <TextView
+                    android:id="@+id/pillUnknown"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="3dp"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_muted"
+                    android:background="@drawable/bg_pill_unknown"
+                    android:visibility="gone" />
+
+            </LinearLayout>
 
         </LinearLayout>
 

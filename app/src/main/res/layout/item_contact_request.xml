@@ -77,7 +77,7 @@
             android:textStyle="bold"
             android:textColor="@color/white"
             app:backgroundTint="@color/palette_teal"
-            app:cornerRadius="18dp"
+            app:cornerRadius="10dp"
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
             android:visibility="gone" />
@@ -92,7 +92,7 @@
             android:textSize="12sp"
             android:textColor="@color/text_primary"
             app:strokeColor="@color/text_primary"
-            app:cornerRadius="18dp"
+            app:cornerRadius="10dp"
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
             android:visibility="gone" />

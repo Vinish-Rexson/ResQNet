@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_dialog_rounded"
+    android:padding="24dp">
+
+    <!-- Header Icon + Title -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <FrameLayout
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_card_rounded"
+            android:backgroundTint="@color/palette_amber_subtle"
+            android:layout_marginEnd="14dp">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_edit"
+                app:tint="@color/palette_amber" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Rename Circle"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Update the display name of this circle"
+                android:textSize="12sp"
+                android:textColor="@color/text_muted" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Circle Name Input -->
+    <EditText
+        android:id="@+id/dialogRenameInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Circle name"
+        android:inputType="textCapWords"
+        android:singleLine="true"
+        android:maxLength="32"
+        android:background="@drawable/bg_input_box"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp"
+        android:textSize="14sp"
+        android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_muted"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Action Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/dialogRenameCancelButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:text="@string/action_cancel"
+            android:textColor="@color/text_muted"
+            android:textSize="14sp"
+            android:layout_marginEnd="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/dialogRenameSaveButton"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:text="Save"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/palette_deep_navy"
+            app:backgroundTint="@color/palette_amber"
+            app:cornerRadius="10dp"
+            app:elevation="0dp"
+            android:paddingHorizontal="20dp" />
+    </LinearLayout>
+
+</LinearLayout>

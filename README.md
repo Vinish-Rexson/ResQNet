@@ -24,6 +24,18 @@ Messages are signed but not encrypted. A fingerprint identifies an installation;
 
 The debug APK is produced at `app/build/outputs/apk/debug/app-debug.apk`.
 
+## Developer Diagnostics & UI Preview (Mock Data)
+
+ResQNet includes an isolated developer diagnostic suite for UI previewing and offline testing without requiring multiple physical mesh nodes:
+
+- **Accessing Diagnostics**:
+  - **In-App**: Navigate to the **Mesh** tab in the bottom bar and tap **"Open Diagnostics & Mock Data"**.
+  - **Via ADB**: `adb shell am start -n com.resqnet.app/.ui.DiagnosticsActivity`
+- **Mock Data Tooling**:
+  - **Load Mock Data**: Populates local Room SQLite database (`resqnet.db`) with realistic broadcast messages, trusted & pending contacts, active emergency circles (*Alpha Evac Squad*, *Sector 4 Community Shelter*), circle chat messages, and nearby peers.
+  - **Clear Data**: Safely and surgically purges mock records (identifiable by the `mock-` prefix), leaving real user identities, contacts, and circles intact.
+  - **Non-Invasive**: Operates purely at the local presentation/database observation layer without modifying or disrupting BLE mesh networking, cryptography, or message routing.
+
 ## Architecture
 
 ```text

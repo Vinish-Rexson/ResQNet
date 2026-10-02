@@ -78,7 +78,7 @@
             android:textStyle="bold"
             android:textColor="@color/white"
             app:backgroundTint="@color/resq_primary"
-            app:cornerRadius="18dp"
+            app:cornerRadius="10dp"
             android:paddingStart="12dp"
             android:paddingEnd="12dp" />
 

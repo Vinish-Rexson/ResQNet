@@ -31,6 +31,7 @@
                 android:background="@color/surface"
                 app:title="ResQNet"
                 app:titleTextColor="@color/text_primary"
+                app:navigationIcon="@null"
                 app:titleTextAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
 
             <View
@@ -103,7 +104,7 @@
                     android:textStyle="bold"
                     app:strokeColor="@color/text_primary"
                     android:textColor="@color/text_primary"
-                    app:cornerRadius="18dp" />
+                    app:cornerRadius="10dp" />
 
             </LinearLayout>
 

@@ -19,6 +19,9 @@ class MeshControlActivity : AppCompatActivity() {
     private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { updatePermissionText() }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState); setContentView(R.layout.activity_mesh_control); title = "Mesh control"
+        val meshToolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
+        setSupportActionBar(meshToolbar)
+        meshToolbar.navigationIcon = null // top-level tab, no back button
         val app = application as ResQNetApplication
         findViewById<TextView>(R.id.identityText).text = "${app.profile.displayName}\n${app.signer.fingerprint}"
         findViewById<Button>(R.id.permissionButton).setOnClickListener { permissions.launch(PermissionHelper.getRequiredPermissions()) }
@@ -40,6 +43,9 @@ class MeshControlActivity : AppCompatActivity() {
             }
             startActivity(intent)
             finish()
+        }
+        findViewById<Button>(R.id.btnOpenDiagnostics)?.setOnClickListener {
+            startActivity(android.content.Intent(this, DiagnosticsActivity::class.java))
         }
         
         setupBottomNav(this, R.id.nav_mesh)

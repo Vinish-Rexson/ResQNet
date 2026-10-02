@@ -1,21 +1,135 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Night variant: same B&W colours, DayNight parent ensures attrs are defined -->
+    <!-- Force same light paper-and-ink aesthetic even when system is in Dark Mode -->
     <style name="Theme.ResQNet" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary = Navy -->
         <item name="colorPrimary">@color/resq_primary</item>
         <item name="colorPrimaryVariant">@color/resq_primary_dark</item>
         <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/resq_primary</item>
-        <item name="colorSecondaryVariant">@color/resq_primary</item>
-        <item name="colorOnSecondary">@color/white</item>
-        <item name="android:colorBackground">@color/surface_card</item>
+        <!-- Secondary = Amber -->
+        <item name="colorSecondary">@color/palette_amber</item>
+        <item name="colorSecondaryVariant">@color/palette_amber</item>
+        <item name="colorOnSecondary">@color/palette_deep_navy</item>
+
+        <!-- Surfaces & Backgrounds -->
+        <item name="android:colorBackground">@color/surface</item>
         <item name="colorSurface">@color/surface_card</item>
-        <item name="android:statusBarColor">@color/white</item>
-        <item name="android:navigationBarColor">@color/white</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnBackground">@color/text_primary</item>
+
+        <!-- Global Text Typography (Controlled from one place) -->
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_muted</item>
+        <item name="android:textColorTertiary">@color/text_muted</item>
+        <item name="android:textColorHint">@color/text_muted</item>
+        <item name="android:editTextColor">@color/text_primary</item>
+
+        <!-- Controls & Tints -->
+        <item name="colorControlNormal">@color/text_primary</item>
+        <item name="colorControlActivated">@color/palette_amber</item>
+        <item name="colorControlHighlight">@color/palette_amber_subtle</item>
+
+        <!-- Toolbars, Menus & Navigation -->
+        <item name="toolbarStyle">@style/Widget.ResQNet.Toolbar</item>
+        <item name="toolbarNavigationButtonStyle">@style/Widget.ResQNet.Toolbar.NavigationButton</item>
+        <item name="actionOverflowButtonStyle">@style/Widget.ResQNet.OverflowButton</item>
+        <item name="homeAsUpIndicator">@drawable/ic_arrow_back</item>
+        <item name="android:homeAsUpIndicator">@drawable/ic_arrow_back</item>
+        <item name="actionMenuTextColor">@color/text_primary</item>
+        <item name="android:actionMenuTextColor">@color/text_primary</item>
+
+        <!-- Popup & Overflow Menus -->
+        <item name="popupMenuStyle">@style/Widget.ResQNet.PopupMenu</item>
+        <item name="android:popupMenuStyle">@style/Widget.ResQNet.PopupMenu</item>
+        <item name="actionOverflowMenuStyle">@style/Widget.ResQNet.PopupMenu</item>
+        <item name="listPopupWindowStyle">@style/Widget.ResQNet.PopupMenu</item>
+        <item name="android:listPopupWindowStyle">@style/Widget.ResQNet.PopupMenu</item>
+
+        <!-- Dialogs & Bottom Sheets -->
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.ResQNet.Dialog</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.ResQNet.Dialog</item>
+        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.ResQNet.BottomSheetDialog</item>
+
+        <!-- Status / Navigation bars -->
+        <item name="android:statusBarColor">@color/surface</item>
+        <item name="android:navigationBarColor">@color/surface</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="o">true</item>
+
+        <!-- Elevation overlay disabled so card colors stay crisp -->
         <item name="elevationOverlayEnabled">false</item>
         <item name="bottomNavigationStyle">@style/Widget.ResQNet.BottomNavigationView</item>
         <item name="materialButtonStyle">@style/Widget.ResQNet.Button</item>
+    </style>
+
+    <!-- Global Toolbar Style -->
+    <style name="Widget.ResQNet.Toolbar" parent="Widget.MaterialComponents.Toolbar.Surface">
+        <item name="android:background">@color/surface</item>
+        <item name="titleTextColor">@color/text_primary</item>
+        <item name="subtitleTextColor">@color/text_muted</item>
+        <item name="navigationIcon">@drawable/ic_arrow_back</item>
+        <item name="navigationIconTint">@color/text_primary</item>
+        <item name="popupTheme">@style/ThemeOverlay.ResQNet.Popup</item>
+    </style>
+
+    <style name="Widget.ResQNet.Toolbar.NavigationButton" parent="Widget.AppCompat.Toolbar.Button.Navigation">
+        <item name="android:tint">@color/text_primary</item>
+        <item name="tint">@color/text_primary</item>
+    </style>
+
+    <style name="Widget.ResQNet.OverflowButton" parent="Widget.AppCompat.ActionButton.Overflow">
+        <item name="android:tint">@color/text_primary</item>
+        <item name="tint">@color/text_primary</item>
+    </style>
+
+    <!-- Popup Menu Style -->
+    <style name="Widget.ResQNet.PopupMenu" parent="Widget.MaterialComponents.PopupMenu">
+        <item name="android:popupBackground">@drawable/bg_bottom_sheet_rounded</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:itemTextAppearance">@style/TextAppearance.ResQNet.MenuItem</item>
+    </style>
+
+    <style name="ThemeOverlay.ResQNet.Popup" parent="ThemeOverlay.MaterialComponents.Light">
+        <item name="android:colorBackground">@color/surface_card</item>
+        <item name="colorSurface">@color/surface_card</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_muted</item>
+        <item name="colorControlNormal">@color/text_primary</item>
+        <item name="android:itemTextAppearance">@style/TextAppearance.ResQNet.MenuItem</item>
+    </style>
+
+    <style name="TextAppearance.ResQNet.MenuItem" parent="TextAppearance.AppCompat.Menu">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <!-- Bottom Sheet & Dialog Themes -->
+    <style name="ThemeOverlay.ResQNet.BottomSheetDialog" parent="ThemeOverlay.MaterialComponents.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/Widget.ResQNet.BottomSheet.Modal</item>
+    </style>
+
+    <style name="Widget.ResQNet.BottomSheet.Modal" parent="Widget.MaterialComponents.BottomSheet.Modal">
+        <item name="android:background">@color/surface_card</item>
+        <item name="backgroundTint">@color/surface_card</item>
+    </style>
+
+    <style name="ThemeOverlay.ResQNet.Dialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="colorSurface">@color/surface_card</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_muted</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.ResQNet.Dialog</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.ResQNet.Dialog</item>
+    </style>
+
+    <style name="ShapeAppearance.ResQNet.Dialog" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/radius_dialog</item>
     </style>
 
     <style name="Widget.ResQNet.BottomNavigationView" parent="Widget.MaterialComponents.BottomNavigationView">
@@ -27,6 +141,6 @@
     <style name="Widget.ResQNet.Button" parent="Widget.MaterialComponents.Button">
         <item name="backgroundTint">@color/resq_primary</item>
         <item name="android:textColor">@color/white</item>
-        <item name="cornerRadius">24dp</item>
+        <item name="cornerRadius">@dimen/radius_button</item>
     </style>
 </resources>

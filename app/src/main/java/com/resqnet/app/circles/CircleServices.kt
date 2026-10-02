@@ -39,4 +39,5 @@ class CircleStatusService(
     suspend fun history(circleId: String, memberNodeId: String) =
         repository.statusHistory(circleId, memberNodeId)
     fun observeStatuses(circleId: String) = repository.observeStatuses(circleId)
+    fun observeAllLatestStatuses() = repository.observeLatestStatusPerMemberAllCircles()
 }

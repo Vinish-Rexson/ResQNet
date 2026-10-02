@@ -36,7 +36,9 @@ class CirclesActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_circles)
 
-        setSupportActionBar(findViewById(R.id.toolbar))
+        val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
+        toolbar.navigationIcon = null // top-level screen, no back button
         supportActionBar?.title = getString(R.string.action_circles)
 
         val pager = findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPager)
@@ -99,6 +101,9 @@ class CirclesActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 model.uiState.collect { state ->
+                    activeAdapter.statusSummaries = state.statusSummaries
+                    archivedAdapter.statusSummaries = state.statusSummaries
+
                     activeAdapter.submitList(state.active)
                     invitesAdapter.submitList(state.invites)
                     archivedAdapter.submitList(state.archived)
@@ -118,9 +123,9 @@ class CirclesActivity : AppCompatActivity() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_create_circle, null)
         val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
             .setView(dialogView)
+            .setBackground(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
             .create()
 
-        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
 
         val input = dialogView.findViewById<EditText>(R.id.dialogCircleNameInput)
         val btnCancel = dialogView.findViewById<View>(R.id.dialogCancelButton)
@@ -141,6 +146,7 @@ class CirclesActivity : AppCompatActivity() {
         }
 
         dialog.show()
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
         input.requestFocus()
     }
 
@@ -172,12 +178,17 @@ class CirclesActivity : AppCompatActivity() {
             override fun areContentsTheSame(o: CircleEntity, n: CircleEntity) = o == n
         }
     ) {
+        var statusSummaries: Map<String, CircleStatusSummary> = emptyMap()
         var onClick: (CircleEntity) -> Unit = {}
 
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
             val avatar: TextView = view.findViewById(R.id.circleAvatar)
             val name: TextView = view.findViewById(R.id.circleName)
             val state: TextView = view.findViewById(R.id.circleState)
+            val pillsRow: View = view.findViewById(R.id.statusPillsRow)
+            val pillSafe: TextView = view.findViewById(R.id.pillSafe)
+            val pillNeedHelp: TextView = view.findViewById(R.id.pillNeedHelp)
+            val pillUnknown: TextView = view.findViewById(R.id.pillUnknown)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(
@@ -188,7 +199,7 @@ class CirclesActivity : AppCompatActivity() {
             val circle = getItem(position)
             holder.avatar.text = avatarInitial(circle.name)
             holder.name.text = circle.name
-            holder.state.text = when(circle.localState) {
+            holder.state.text = when (circle.localState) {
                 CircleLocalState.ACTIVE -> "Active"
                 CircleLocalState.OWNER_ACTIVE -> "Active (Owner)"
                 CircleLocalState.LEAVE_PENDING -> "Leaving..."
@@ -197,6 +208,26 @@ class CirclesActivity : AppCompatActivity() {
                 else -> circle.localState.name
             }
             holder.itemView.setOnClickListener { onClick(circle) }
+
+            // Bind status pills
+            val summary = statusSummaries[circle.circleId]
+            if (summary != null && summary.hasAnyStatus) {
+                holder.pillsRow.visibility = View.VISIBLE
+                bindPill(holder.pillSafe, summary.safeCount, "✓ ${summary.safeCount} Safe")
+                bindPill(holder.pillNeedHelp, summary.needHelpCount, "! ${summary.needHelpCount} Need Help")
+                bindPill(holder.pillUnknown, summary.unknownCount, "? ${summary.unknownCount} Unknown")
+            } else {
+                holder.pillsRow.visibility = View.GONE
+            }
+        }
+
+        private fun bindPill(pill: TextView, count: Int, label: String) {
+            if (count > 0) {
+                pill.text = label
+                pill.visibility = View.VISIBLE
+            } else {
+                pill.visibility = View.GONE
+            }
         }
     }
 

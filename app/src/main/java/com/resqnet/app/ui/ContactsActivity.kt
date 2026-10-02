@@ -38,7 +38,9 @@ class ContactsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_contacts)
 
-        setSupportActionBar(findViewById(R.id.toolbar))
+        val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
+        toolbar.navigationIcon = null // top-level screen, no back button
 
         // Wire ViewPager2 with a simple array adapter pointing at three static views
         val pager = findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPager)
@@ -215,7 +217,10 @@ class ContactsActivity : AppCompatActivity() {
             holder.btnMessage.setOnClickListener { onMessage(contact) }
 
             holder.btnOverflow.setOnClickListener { btn ->
-                PopupMenu(btn.context, btn).apply {
+                androidx.appcompat.widget.PopupMenu(
+                    androidx.appcompat.view.ContextThemeWrapper(btn.context, R.style.ThemeOverlay_ResQNet_Popup),
+                    btn
+                ).apply {
                     menu.add(if (blocked) getString(R.string.action_unblock) else getString(R.string.action_block))
                         .setOnMenuItemClickListener { onBlock(contact); true }
                     menu.add(getString(R.string.action_remove))

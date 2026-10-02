@@ -198,6 +198,7 @@ class RoomCircleRepository(
     override suspend fun latestStatus(circleId: String, memberNodeId: String) = dao.latestCircleStatus(circleId, memberNodeId)
     override suspend fun statusHistory(circleId: String, memberNodeId: String) = dao.circleStatusHistory(circleId, memberNodeId)
     override fun observeStatuses(circleId: String) = dao.observeCircleStatuses(circleId)
+    override fun observeLatestStatusPerMemberAllCircles() = dao.observeLatestStatusPerMemberAllCircles()
     override suspend fun prepareAcceptance(
         inviteId: String,
         localNodeId: String,

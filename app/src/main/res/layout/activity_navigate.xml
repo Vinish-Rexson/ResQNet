@@ -18,6 +18,7 @@
             android:layout_height="?attr/actionBarSize"
             android:background="@color/surface"
             android:title="Navigate"
+            app:navigationIcon="@null"
             app:titleTextColor="@color/text_primary" />
 
         <View
@@ -69,7 +70,7 @@
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
                         app:strokeColor="@color/text_primary"
-                        app:cornerRadius="20dp"
+                        app:cornerRadius="10dp"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
                     <com.google.android.material.button.MaterialButton
@@ -83,7 +84,7 @@
                         android:textStyle="bold"
                         android:textColor="@color/white"
                         app:backgroundTint="@color/resq_primary"
-                        app:cornerRadius="20dp" />
+                        app:cornerRadius="10dp" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -102,7 +103,7 @@
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
                         app:strokeColor="@color/text_primary"
-                        app:cornerRadius="20dp"
+                        app:cornerRadius="10dp"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
                     <com.google.android.material.button.MaterialButton
@@ -116,7 +117,7 @@
                         android:textStyle="bold"
                         android:textColor="@color/resq_primary"
                         app:backgroundTint="@color/palette_amber"
-                        app:cornerRadius="20dp" />
+                        app:cornerRadius="10dp" />
                 </LinearLayout>
 
             </LinearLayout>

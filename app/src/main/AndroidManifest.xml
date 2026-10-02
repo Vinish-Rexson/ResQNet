@@ -27,7 +27,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ResQNet">
 
-        <activity android:name=".ui.DiagnosticsActivity" />
+        <activity 
+            android:name=".ui.DiagnosticsActivity"
+            android:exported="true" />
         <activity android:name=".ui.MeshControlActivity" />
         <activity android:name=".ui.NavigateActivity" android:label="Navigate" />
         <activity

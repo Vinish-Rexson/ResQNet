@@ -23,6 +23,18 @@ class DiagnosticsActivity : AppCompatActivity() {
             R.id.roleA -> DemoRole.A; R.id.roleB -> DemoRole.B; R.id.roleC -> DemoRole.C; else -> DemoRole.NONE
         } }
         findViewById<Button>(R.id.clearEvents).setOnClickListener { MeshRuntime.clearEvents() }
+        findViewById<Button>(R.id.btnLoadMockData)?.setOnClickListener {
+            lifecycleScope.launch {
+                MockDataSeeder.seed(app)
+                Toast.makeText(this@DiagnosticsActivity, "Mock data loaded! Check Chat, Contacts & Circles.", Toast.LENGTH_LONG).show()
+            }
+        }
+        findViewById<Button>(R.id.btnClearMockData)?.setOnClickListener {
+            lifecycleScope.launch {
+                MockDataSeeder.clear(app)
+                Toast.makeText(this@DiagnosticsActivity, "Mock data cleared.", Toast.LENGTH_SHORT).show()
+            }
+        }
         lifecycleScope.launch { repeatOnLifecycle(Lifecycle.State.STARTED) { MeshRuntime.state.collect {
             findViewById<TextView>(R.id.eventLog).text = it.events.ifEmpty { listOf("No mesh events yet") }.joinToString("\n")
         } } }
