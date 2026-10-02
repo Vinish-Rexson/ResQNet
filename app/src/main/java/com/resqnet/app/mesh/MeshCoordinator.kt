@@ -1,6 +1,10 @@
 package com.resqnet.app.mesh
 
 import com.resqnet.app.protocol.MeshFrame
+import com.resqnet.app.mesh.barp.BarpController
+import com.resqnet.app.mesh.barp.RelayMode
+import com.resqnet.app.mesh.barp.BarpState
+import com.resqnet.app.mesh.barp.isBarpCriticalTraffic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
@@ -10,26 +14,63 @@ class MeshCoordinator(
     private val transport: MeshTransport,
     private val router: MessageRouter,
     private val scope: CoroutineScope,
+    private val barp: BarpController,
 ) {
     private var eventJob: Job? = null
     private var syncJob: Job? = null
+    private var barpJob: Job? = null
+    private var deferredScanChange: Job? = null
+    private var lastBarpMode: RelayMode? = null
     private val connected = mutableSetOf<String>()
 
     suspend fun start() {
         if (eventJob != null) return
         eventJob = scope.launch { transport.events.collect(::handle) }
+        barpJob = scope.launch { barp.state.collect { applyBarpState(it) } }
         syncJob = scope.launch {
             while (true) {
-                kotlinx.coroutines.delay(10_000)
+                kotlinx.coroutines.delay(barp.state.value.syncIntervalMs)
                 syncNow()
             }
         }
         router.cleanup(); transport.start()
     }
 
-    suspend fun stop() { transport.stop(); eventJob?.cancel(); eventJob = null; syncJob?.cancel(); syncJob = null; connected.clear(); MeshRuntime.peers(0) }
+    suspend fun stop() {
+        transport.stop(); eventJob?.cancel(); eventJob = null; syncJob?.cancel(); syncJob = null
+        barpJob?.cancel(); barpJob = null; deferredScanChange?.cancel(); deferredScanChange = null
+        connected.clear(); MeshRuntime.peers(0)
+    }
 
-    suspend fun syncNow() { connected.toList().forEach { sendInventory(it) } }
+    suspend fun syncNow() {
+        MeshRuntime.synced()
+        MeshRuntime.event("BARP sync #${MeshRuntime.state.value.syncCount} (${barp.state.value.mode.name.lowercase()})")
+        connected.toList().forEach { sendInventory(it) }
+    }
+
+    private suspend fun applyBarpState(state: BarpState, forceScanApply: Boolean = false) {
+        MeshRuntime.barp(state.mode.name.lowercase().replaceFirstChar { it.uppercase() }, state.battery.levelPercent, state.battery.powerSaveMode)
+        if (state.mode != lastBarpMode) {
+            MeshRuntime.event(
+                "BARP mode ${state.mode.name.lowercase()} " +
+                    "(battery ${state.battery.levelPercent?.let { "$it%" } ?: "unknown"}, " +
+                    "power saver ${if (state.battery.powerSaveMode) "on" else "off"})",
+            )
+            lastBarpMode = state.mode
+        } else if (!forceScanApply) return
+        when (val result = transport.applyBarpMode(state.mode)) {
+            BarpScanChange.Unchanged -> Unit
+            BarpScanChange.Restarted -> MeshRuntime.event("BARP restarted BLE scan for ${state.mode.name.lowercase()} mode")
+            is BarpScanChange.Deferred -> {
+                MeshRuntime.event("BARP scan change deferred ${result.delayMs / 1_000}s to respect 30s dwell")
+                deferredScanChange?.cancel()
+                deferredScanChange = scope.launch {
+                    kotlinx.coroutines.delay(result.delayMs)
+                    if (barp.state.value.mode == state.mode) applyBarpState(state, forceScanApply = true)
+                }
+            }
+        }
+    }
 
     private suspend fun handle(event: TransportEvent) {
         when (event) {
@@ -57,7 +98,12 @@ class MeshCoordinator(
             }
             is MeshFrame.Request -> {
                 MeshRuntime.event("Received request for ${frame.messageIds.size} items from ${peerId.take(8)}")
-                router.requestedPackets(frame.messageIds).forEach { transport.send(peerId, MeshFrame.Packet(it)) }
+                router.requestedPackets(frame.messageIds)
+                    .sortedByDescending { packet ->
+                        runCatching { com.resqnet.app.protocol.ProtocolCodec.decodePayload(packet.packet.payloadBytes).isBarpCriticalTraffic() }
+                            .getOrDefault(false)
+                    }
+                    .forEach { transport.send(peerId, MeshFrame.Packet(it)) }
             }
             is MeshFrame.Packet -> {
                 MeshRuntime.event("Received packet from ${peerId.take(8)}")

@@ -45,7 +45,9 @@ class MeshControlActivity : AppCompatActivity() {
         setupBottomNav(this, R.id.nav_mesh)
         
         lifecycleScope.launch { repeatOnLifecycle(Lifecycle.State.STARTED) { MeshRuntime.state.collect {
-            findViewById<TextView>(R.id.controlStatus).text = "${it.status}\nNearby connections: ${it.peerCount}"
+            val battery = it.batteryPercent?.let { value -> "$value%" } ?: "unknown"
+            findViewById<TextView>(R.id.controlStatus).text =
+                "${it.status}\nNearby connections: ${it.peerCount}\nBARP: ${it.barpMode} · Battery: $battery${if (it.powerSaveMode) " · Power Saver" else ""}\nSyncs: ${it.syncCount}"
             
             val isActive = it.active
             findViewById<Button>(R.id.startMeshButton).visibility = if (isActive) android.view.View.GONE else android.view.View.VISIBLE

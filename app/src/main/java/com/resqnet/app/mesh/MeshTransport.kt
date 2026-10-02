@@ -1,6 +1,8 @@
 package com.resqnet.app.mesh
 
 import com.resqnet.app.protocol.MeshFrame
+import com.resqnet.app.mesh.barp.RelayMode
+import com.resqnet.app.mesh.barp.ScanPowerMode
 import kotlinx.coroutines.flow.Flow
 
 data class PeerConnection(val peerId: String, val displayName: String?, val connected: Boolean)
@@ -18,6 +20,13 @@ interface MeshTransport {
     suspend fun start()
     suspend fun stop()
     suspend fun send(peerId: String, frame: MeshFrame): Boolean
+    suspend fun applyBarpMode(mode: RelayMode): BarpScanChange
+}
+
+sealed interface BarpScanChange {
+    data object Unchanged : BarpScanChange
+    data object Restarted : BarpScanChange
+    data class Deferred(val delayMs: Long) : BarpScanChange
 }
 
 interface MeshSession {

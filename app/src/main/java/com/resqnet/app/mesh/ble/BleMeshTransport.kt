@@ -14,6 +14,10 @@ import com.resqnet.app.DemoRole
 import com.resqnet.app.ProfileStore
 import com.resqnet.app.mesh.MeshTransport
 import com.resqnet.app.mesh.TransportEvent
+import com.resqnet.app.mesh.BarpScanChange
+import com.resqnet.app.mesh.barp.RelayMode
+import com.resqnet.app.mesh.barp.ScanPowerMode
+import com.resqnet.app.mesh.barp.ScanModeDwell
 import com.resqnet.app.protocol.MeshFrame
 import com.resqnet.app.protocol.TRANSPORT_VERSION
 import com.resqnet.app.protocol.ProtocolCodec
@@ -49,6 +53,9 @@ class BleMeshTransport(
     private val reconnectAfter = ConcurrentHashMap<String, Long>()
     private val reconnectAttempts = ConcurrentHashMap<String, Int>()
     private var started = false
+    private var scanPowerMode = ScanPowerMode.BALANCED
+    private var activeScanPowerMode: ScanPowerMode? = null
+    private val scanModeDwell = ScanModeDwell()
 
     override suspend fun start() {
         if (started) return
@@ -66,11 +73,24 @@ class BleMeshTransport(
         runCatching { adapter.bluetoothLeAdvertiser?.stopAdvertising(advertiseCallback) }
         clients.values.forEach { it.close() }; clients.clear()
         servers.clear(); addressToPeer.clear(); server?.close(); server = null
+        activeScanPowerMode = null
     }
 
     override suspend fun send(peerId: String, frame: MeshFrame): Boolean {
         val bytes = ProtocolCodec.encodeFrame(frame)
         return clients[peerId]?.enqueue(bytes) ?: servers[peerId]?.enqueue(bytes) ?: false
+    }
+
+    override suspend fun applyBarpMode(mode: RelayMode): BarpScanChange {
+        val requested = if (mode == RelayMode.NORMAL) ScanPowerMode.BALANCED else ScanPowerMode.LOW_POWER
+        scanPowerMode = requested
+        val active = activeScanPowerMode ?: return BarpScanChange.Unchanged
+        if (active == requested) return BarpScanChange.Unchanged
+        val waitMs = scanModeDwell.delayUntilChangeAllowed(SystemClock.elapsedRealtime())
+        if (waitMs > 0) return BarpScanChange.Deferred(waitMs)
+        adapter.bluetoothLeScanner?.stopScan(scanCallback)
+        startScanning()
+        return BarpScanChange.Restarted
     }
 
     private fun hasPermissions(): Boolean = if (Build.VERSION.SDK_INT >= 31) {
@@ -110,8 +130,11 @@ class BleMeshTransport(
 
     private fun startScanning() {
         val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(SERVICE_UUID)).build()
-        val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_BALANCED).build()
+        val mode = if (scanPowerMode == ScanPowerMode.BALANCED) ScanSettings.SCAN_MODE_BALANCED else ScanSettings.SCAN_MODE_LOW_POWER
+        val settings = ScanSettings.Builder().setScanMode(mode).build()
         adapter.bluetoothLeScanner?.startScan(listOf(filter), settings, scanCallback) ?: error("BLE scanning is unavailable")
+        activeScanPowerMode = scanPowerMode
+        scanModeDwell.recordChange(SystemClock.elapsedRealtime())
     }
 
     private val advertiseCallback = object : AdvertiseCallback() {

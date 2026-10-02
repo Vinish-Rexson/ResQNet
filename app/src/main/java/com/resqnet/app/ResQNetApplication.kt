@@ -12,6 +12,7 @@ import com.resqnet.app.circles.CircleService
 import com.resqnet.app.circles.CircleMessageService
 import com.resqnet.app.circles.CircleStatusService
 import com.resqnet.app.navigation.HazardRepository
+import com.resqnet.app.mesh.barp.BarpController
 
 class ResQNetApplication : Application() {
     lateinit var database: ResQNetDatabase; private set
@@ -31,6 +32,7 @@ class ResQNetApplication : Application() {
     lateinit var contactService: ContactService; private set
     lateinit var directMessages: DirectMessageService; private set
     lateinit var signer: AndroidIdentitySigner; private set
+    val barp = BarpController()
 
     override fun onCreate() {
         super.onCreate()

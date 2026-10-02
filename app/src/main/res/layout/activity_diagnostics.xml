@@ -142,6 +142,47 @@
 
         </com.google.android.material.card.MaterialCardView>
 
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/barpOverrideCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="@color/color_divider"
+            app:cardBackgroundColor="@color/surface_card"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="BARP override"
+                    android:textStyle="bold"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_primary" />
+
+                <RadioGroup
+                    android:id="@+id/barpOverrideGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    android:layout_marginTop="8dp">
+
+                    <RadioButton android:id="@+id/barpAuto" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Automatic" android:checked="true" />
+                    <RadioButton android:id="@+id/barpNormal" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Force Normal" />
+                    <RadioButton android:id="@+id/barpConservation" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Force Conservation" />
+                    <RadioButton android:id="@+id/barpCritical" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Force Critical" />
+                </RadioGroup>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Card: UI Preview & Mock Data -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
