@@ -66,7 +66,7 @@
         <service
             android:name=".mesh.MeshService"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="connectedDevice|specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="mesh_network_maintenance" />
