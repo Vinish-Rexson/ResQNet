@@ -72,6 +72,19 @@ class HazardRepository(private val dao: HazardDao, private val now: () -> Long =
         return report.toDomain()
     }
 
+    /** Applies a verified mesh report. Older copies must not overwrite a newer local edit. */
+    suspend fun upsertFromMesh(report: HazardReport): Boolean {
+        val existing = dao.find(report.id)
+        if (existing != null && existing.updatedAt > report.updatedAt) return false
+        dao.upsert(HazardReportEntity(
+            reportId = report.id, type = report.type, latitude = report.center.latitude,
+            longitude = report.center.longitude, radiusMeters = report.radiusMeters, note = report.note,
+            createdAt = report.createdAt, updatedAt = report.updatedAt, expiresAt = report.expiresAt,
+            resolvedAt = report.resolvedAt,
+        ))
+        return true
+    }
+
     suspend fun resolve(id: String) = dao.resolve(id, now())
     suspend fun delete(id: String) = dao.delete(id)
 

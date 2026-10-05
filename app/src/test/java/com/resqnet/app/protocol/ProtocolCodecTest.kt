@@ -11,6 +11,10 @@ class ProtocolCodecTest {
     @Test fun typedPayloadsRoundTripAcrossAudienceAndBodyFamilies() {
         val cases = listOf(
             payload(PacketKind.PUBLIC_TEXT, Audience.PublicChannel, PublicTextBody("Flood route is clear ✅")),
+            payload(
+                PacketKind.HAZARD_REPORT, Audience.PublicChannel,
+                HazardReportBody("hazard-1", HazardReportType.FLOOD, 12.9716, 77.5946, 100, "Water on road", 123),
+            ),
             payload(PacketKind.DIRECT_TEXT, Audience.DirectNode("node-b"), DirectTextBody("dm-1", "Need batteries")),
             payload(PacketKind.CONTACT_REQUEST, Audience.DirectNode("node-b"), ContactRequestBody("request-1", "Alice")),
             payload(
@@ -180,6 +184,9 @@ class ProtocolCodecTest {
                 "circle", 1, "node-a", SafetyStatus.SAFE, null,
             )
             PacketKind.CIRCLE_LEAVE_REQUEST -> Audience.DirectNode("node-b") to CircleLeaveRequestBody("circle", 4)
+            PacketKind.HAZARD_REPORT -> Audience.PublicChannel to HazardReportBody(
+                "hazard", HazardReportType.FLOOD, 12.9716, 77.5946, 100, "Flooded road", 150,
+            )
         }
         return payload(kind, audience, body).copy(relayPolicy = relayPolicy)
     }

@@ -148,6 +148,7 @@ object ProtocolCodec {
 
     private fun validAudience(kind: PacketKind, audience: Audience): Boolean = when (kind) {
         PacketKind.PUBLIC_TEXT -> audience is Audience.PublicChannel
+        PacketKind.HAZARD_REPORT -> audience is Audience.PublicChannel
         PacketKind.CONTACT_REQUEST,
         PacketKind.CONTACT_ACCEPT,
         PacketKind.CONTACT_DECLINE,
@@ -220,6 +221,19 @@ object ProtocolCodec {
             writeBoundedString(body.subjectNodeId, MAX_ID_BYTES); writeByte(body.status.wireId)
             writeBoolean(body.note != null); body.note?.let { writeBoundedString(it, MAX_NOTE_BYTES) }
         }
+        is HazardReportBody -> {
+            writeBoundedString(body.reportId, MAX_ID_BYTES)
+            writeByte(body.type.wireId)
+            require(body.latitude.isFinite() && body.latitude in -90.0..90.0) { "Invalid hazard latitude" }
+            require(body.longitude.isFinite() && body.longitude in -180.0..180.0) { "Invalid hazard longitude" }
+            writeDouble(body.latitude)
+            writeDouble(body.longitude)
+            require(body.radiusMeters in 25..250) { "Invalid hazard radius" }
+            writeInt(body.radiusMeters)
+            writeBoolean(body.note != null)
+            body.note?.let { writeBoundedString(it, MAX_HAZARD_NOTE_BYTES) }
+            writeLong(body.updatedAt)
+        }
         is CircleLeaveRequestBody -> {
             writeBoundedString(body.circleId, MAX_ID_BYTES)
             writeLong(body.membershipVersion)
@@ -268,6 +282,18 @@ object ProtocolCodec {
             if (readBoolean()) readBoundedString(MAX_NOTE_BYTES) else null,
         )
         PacketKind.CIRCLE_LEAVE_REQUEST -> CircleLeaveRequestBody(readBoundedString(MAX_ID_BYTES), readLong())
+        PacketKind.HAZARD_REPORT -> {
+            val reportId = readBoundedString(MAX_ID_BYTES)
+            val type = HazardReportType.fromWireId(readUnsignedByte())
+            val latitude = readDouble().also { require(it.isFinite() && it in -90.0..90.0) { "Invalid hazard latitude" } }
+            val longitude = readDouble().also { require(it.isFinite() && it in -180.0..180.0) { "Invalid hazard longitude" } }
+            val radius = readInt().also { require(it in 25..250) { "Invalid hazard radius" } }
+            HazardReportBody(
+                reportId, type, latitude, longitude, radius,
+                if (readBoolean()) readBoundedString(MAX_HAZARD_NOTE_BYTES) else null,
+                readLong(),
+            )
+        }
     }
 
     private fun DataInputStream.readMemberCount(): Int = readInt().also {

@@ -5,6 +5,10 @@ import com.resqnet.app.contacts.ContactDirectPort
 import com.resqnet.app.contacts.DISCOVERY_FRESHNESS_WINDOW_MS
 import com.resqnet.app.circles.*
 import com.resqnet.app.data.*
+import com.resqnet.app.navigation.GeoPoint
+import com.resqnet.app.navigation.HazardReport
+import com.resqnet.app.navigation.HazardRepository
+import com.resqnet.app.navigation.HazardType
 import com.resqnet.app.protocol.*
 import com.resqnet.app.security.IdentitySigner
 import java.security.MessageDigest
@@ -41,6 +45,7 @@ class MessageRouter(
     discoveryFreshnessWindowMs: Long = DISCOVERY_FRESHNESS_WINDOW_MS,
     private val localProjections: LocalProjectionRepository? = null,
     circles: CircleRepository? = null,
+    private val hazards: HazardRepository? = null,
 ) : ContactDirectPort, CirclePort {
     private val contactDirect = ContactDirectHandler(
         this, packets, conversations, peers, contacts, receipts, discoveryFreshnessWindowMs,
@@ -94,6 +99,12 @@ class MessageRouter(
     suspend fun renameCircle(circleId: String, name: String) = circleLifecycle.rename(circleId, name)
     suspend fun removeCircleMember(circleId: String, nodeId: String) = circleLifecycle.removeMember(circleId, nodeId)
     suspend fun dissolveCircle(circleId: String) = circleLifecycle.dissolve(circleId)
+
+    /** Stores a signed, public hazard report so it is eligible for the normal mesh inventory relay. */
+    suspend fun createHazardReport(report: HazardReport): String {
+        val payload = createLocalHazardPayload(report)
+        return payload.packetId.toString()
+    }
 
     suspend fun ingest(envelope: RelayEnvelope, fromPeerId: String): IngestResult {
         envelope.boundsViolation(requireRelayable = true)?.let { return IngestResult.Rejected(it) }
@@ -249,6 +260,7 @@ class MessageRouter(
     private suspend fun projectPayload(payload: PayloadV2, originPublicKey: ByteArray, hopCount: Int): IngestResult =
         when (payload.kind) {
             PacketKind.PUBLIC_TEXT -> projectPublic(payload, hopCount)
+            PacketKind.HAZARD_REPORT -> projectHazard(payload)
             PacketKind.CIRCLE_INVITE,
             PacketKind.CIRCLE_INVITE_ACCEPT,
             PacketKind.CIRCLE_INVITE_DECLINE,
@@ -301,6 +313,46 @@ class MessageRouter(
             "Packet ID collision"
         }
         return payload
+    }
+
+    private suspend fun createLocalHazardPayload(report: HazardReport): PayloadV2 {
+        val now = clock()
+        val payload = PayloadV2(
+            UUID.randomUUID(), PacketKind.HAZARD_REPORT, Audience.PublicChannel, signer.nodeId,
+            displayName(), packets.nextSequence(), now, report.expiresAt, RelayPolicy.EPHEMERAL,
+            HazardReportBody(
+                report.id, report.type.toWireType(), report.center.latitude, report.center.longitude,
+                report.radiusMeters, report.note, report.updatedAt,
+            ),
+        )
+        val payloadBytes = ProtocolCodec.encodePayload(payload)
+        val packet = SignedPacket(payloadBytes, signer.sign(payloadBytes), signer.publicKey)
+        val envelope = RelayEnvelope(packet, DEFAULT_TTL, 0, listOf(signer.nodeId))
+        check(packets.insert(packetEntity(payload, envelope, projected = true, receivedAt = now))) {
+            "Packet ID collision"
+        }
+        return payload
+    }
+
+    private suspend fun projectHazard(payload: PayloadV2): IngestResult {
+        val body = payload.body as HazardReportBody
+        val report = HazardReport(
+            body.reportId, body.type.toNavigationType(), GeoPoint(body.latitude, body.longitude).requireValid(),
+            body.radiusMeters, body.note, payload.createdAt, body.updatedAt, payload.expiresAt, null,
+        )
+        val repository = hazards ?: return suppress(payload.packetId.toString())
+        repository.upsertFromMesh(report)
+        return promoteProcessed(payload.packetId.toString())
+    }
+
+    private fun HazardType.toWireType() = when (this) {
+        HazardType.FLOOD -> HazardReportType.FLOOD
+        HazardType.UNSAFE_AREA -> HazardReportType.UNSAFE_AREA
+    }
+
+    private fun HazardReportType.toNavigationType() = when (this) {
+        HazardReportType.FLOOD -> HazardType.FLOOD
+        HazardReportType.UNSAFE_AREA -> HazardType.UNSAFE_AREA
     }
 
     override suspend fun createLocalPacket(

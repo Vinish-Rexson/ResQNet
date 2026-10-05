@@ -8,6 +8,7 @@ const val CHANNEL_ID = "local-emergency"
 const val MAX_TEXT_BYTES = 500
 const val MAX_MESSAGE_BYTES = MAX_TEXT_BYTES
 const val MAX_NOTE_BYTES = 160
+const val MAX_HAZARD_NOTE_BYTES = 1_000
 const val MAX_NAME_BYTES = 64
 const val MAX_CIRCLE_MEMBERS = 20
 const val DEFAULT_TTL = 6
@@ -38,7 +39,8 @@ enum class PacketKind(val wireId: Int) {
     CIRCLE_MEMBERSHIP_SNAPSHOT(10),
     CIRCLE_TEXT(11),
     CIRCLE_STATUS(12),
-    CIRCLE_LEAVE_REQUEST(13);
+    CIRCLE_LEAVE_REQUEST(13),
+    HAZARD_REPORT(14);
 
     companion object {
         fun fromWireId(id: Int) = entries.firstOrNull { it.wireId == id }
@@ -93,6 +95,7 @@ val PacketKind.requiredRelayPolicy: RelayPolicy
         PacketKind.CIRCLE_INVITE_DECLINE,
         PacketKind.CIRCLE_TEXT,
         PacketKind.CIRCLE_STATUS,
+        PacketKind.HAZARD_REPORT,
         -> RelayPolicy.EPHEMERAL
     }
 
@@ -166,6 +169,26 @@ data class CircleLeaveRequestBody(
     val circleId: String,
     val membershipVersion: Long,
 ) : PacketBody { override val kind = PacketKind.CIRCLE_LEAVE_REQUEST }
+
+/** A public, signed report used to keep offline route avoidance data in sync over the mesh. */
+enum class HazardReportType(val wireId: Int) {
+    FLOOD(1), UNSAFE_AREA(2);
+
+    companion object {
+        fun fromWireId(id: Int) = entries.firstOrNull { it.wireId == id }
+            ?: throw IllegalArgumentException("Unsupported hazard type $id")
+    }
+}
+
+data class HazardReportBody(
+    val reportId: String,
+    val type: HazardReportType,
+    val latitude: Double,
+    val longitude: Double,
+    val radiusMeters: Int,
+    val note: String?,
+    val updatedAt: Long,
+) : PacketBody { override val kind = PacketKind.HAZARD_REPORT }
 
 data class PayloadV2(
     val packetId: UUID,

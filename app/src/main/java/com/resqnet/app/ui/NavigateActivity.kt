@@ -69,6 +69,8 @@ import com.resqnet.app.navigation.ShelterRouteSelector
 import com.resqnet.app.navigation.ValhallaRoutingEngine
 import com.resqnet.app.navigation.pack.OfflinePackManager
 import com.resqnet.app.navigation.pack.OfflinePackState
+import com.resqnet.app.mesh.MeshService
+import com.resqnet.app.mesh.MeshRuntime
 import kotlinx.coroutines.launch
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
@@ -669,14 +671,22 @@ class NavigateActivity : AppCompatActivity() {
             val expiresAt = System.currentTimeMillis() + hours[spExpiry.selectedItemPosition] * 60 * 60 * 1000L
             lifecycleScope.launch {
                 runCatching {
-                    if (existing == null) {
+                    val report = if (existing == null) {
                         (application as ResQNetApplication).hazards.create(type, center, radiusMeters, expiresAt, etNote.text?.toString())
                     } else {
                         (application as ResQNetApplication).hazards.update(existing, type, radiusMeters, expiresAt, etNote.text?.toString())
                     }
+                    (application as ResQNetApplication).router.createHazardReport(report)
+                    if (MeshRuntime.state.value.active) {
+                        MeshService.command(this@NavigateActivity, MeshService.ACTION_SYNC)
+                    }
                 }.onSuccess {
                     dialog.dismiss()
-                    routeSummary.text = "${type.label} report saved. New routes will avoid this area."
+                    routeSummary.text = if (MeshRuntime.state.value.active) {
+                        "${type.label} report saved and queued for mesh sharing. New routes will avoid this area."
+                    } else {
+                        "${type.label} report saved. Start Mesh to share it; new routes will avoid this area."
+                    }
                 }.onFailure {
                     showError(it.message ?: "Could not save report")
                 }

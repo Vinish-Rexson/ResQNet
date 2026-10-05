@@ -50,7 +50,7 @@ class ResQNetApplication : Application() {
         signer = AndroidIdentitySigner()
         router = MessageRouter(
             packets, messages, peers, signer, { profile.displayName.ifBlank { "Anonymous" } },
-            contacts = contacts, receipts = receipts, localProjections = localProjections, circles = circles,
+            contacts = contacts, receipts = receipts, localProjections = localProjections, circles = circles, hazards = hazards,
         )
         contactService = ContactService(contacts, router)
         directMessages = DirectMessageService(messages, router)

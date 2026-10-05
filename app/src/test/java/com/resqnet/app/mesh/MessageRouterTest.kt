@@ -2,6 +2,12 @@ package com.resqnet.app.mesh
 
 import com.resqnet.app.data.*
 import com.resqnet.app.protocol.*
+import com.resqnet.app.navigation.GeoPoint
+import com.resqnet.app.navigation.HazardDao
+import com.resqnet.app.navigation.HazardReport
+import com.resqnet.app.navigation.HazardReportEntity
+import com.resqnet.app.navigation.HazardRepository
+import com.resqnet.app.navigation.HazardType
 import com.resqnet.app.security.IdentitySigner
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +25,32 @@ import java.security.spec.X509EncodedKeySpec
 import java.util.UUID
 
 class MessageRouterTest {
+    @Test fun signedFloodReportRelaysAndProjectsOnReceivingNode() = runTest {
+        val now = 1_000L
+        val senderPackets = MemoryPackets()
+        val receiverPackets = MemoryPackets()
+        val receiverHazards = MemoryHazardDao()
+        val sender = MessageRouter(senderPackets, MemoryConversations(), MemoryPeers(), JvmSigner(), { "Alice" }, { now })
+        val receiver = MessageRouter(
+            receiverPackets, MemoryConversations(), MemoryPeers(), JvmSigner(), { "Bob" }, { now },
+            hazards = HazardRepository(receiverHazards) { now },
+        )
+        val flood = HazardReport(
+            "flood-1", HazardType.FLOOD, GeoPoint(12.9716, 77.5946), 100, "Water across road",
+            now, now, now + PROPAGATION_WINDOW_MS, null,
+        )
+
+        val packetId = sender.createHazardReport(flood)
+        val original = ProtocolCodec.decodeEnvelope(senderPackets.values.getValue(packetId).rawEnvelope)
+
+        assertTrue(receiver.ingest(original, "sender") is IngestResult.Projected)
+        assertEquals(HazardType.FLOOD, receiverHazards.values.getValue("flood-1").type)
+        assertEquals("Water across road", receiverHazards.values.getValue("flood-1").note)
+        val relayed = receiver.requestedPackets(listOf(packetId)).single()
+        assertArrayEquals(original.packet.payloadBytes, relayed.packet.payloadBytes)
+        assertArrayEquals(original.packet.signature, relayed.packet.signature)
+    }
+
     @Test fun validDirectPacketPersistsOnNonRecipientRelayWithoutVisibleProjection() = runTest {
         val now = 1_000L
         val senderSigner = JvmSigner()
@@ -298,6 +330,21 @@ class MessageRouterTest {
         }
         override suspend fun find(nodeId: String) = peers[nodeId]
         override fun observePeers(): Flow<List<PeerEntity>> = kotlinx.coroutines.flow.flowOf(peers.values.toList())
+    }
+
+    private class MemoryHazardDao : HazardDao {
+        val values = linkedMapOf<String, HazardReportEntity>()
+        override fun observeActive(now: Long) = kotlinx.coroutines.flow.flowOf(values.values.filter { it.resolvedAt == null && it.expiresAt > now })
+        override suspend fun active(now: Long) = values.values.filter { it.resolvedAt == null && it.expiresAt > now }
+        override suspend fun find(reportId: String) = values[reportId]
+        override suspend fun upsert(report: HazardReportEntity) { values[report.reportId] = report }
+        override suspend fun resolve(reportId: String, resolvedAt: Long): Int {
+            val report = values[reportId] ?: return 0
+            if (report.resolvedAt != null) return 0
+            values[reportId] = report.copy(resolvedAt = resolvedAt, updatedAt = resolvedAt)
+            return 1
+        }
+        override suspend fun delete(reportId: String) { values.remove(reportId) }
     }
 
     private class JvmSigner : IdentitySigner {
